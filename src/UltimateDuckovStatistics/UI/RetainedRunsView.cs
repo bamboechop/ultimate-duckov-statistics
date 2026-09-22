@@ -123,6 +123,7 @@ internal sealed partial class RetainedStatisticsShell
         public ScrollRect Scroll { get; }
         private readonly RunsOverflowEdge top;
         private readonly RunsOverflowEdge bottom;
+        private bool hasLayout;
         public float Offset => Math.Max(0, Content.anchoredPosition.y);
         public ScrollRegion(RectTransform parent, string name, RectTransform? contour = null, float radius = 10)
         {
@@ -162,6 +163,7 @@ internal sealed partial class RetainedStatisticsShell
             Content.sizeDelta = new Vector2(width, Math.Max(height, contentHeight));
             Stretch(top.rectTransform); Stretch(bottom.rectTransform);
             top.rectTransform.SetAsLastSibling(); bottom.rectTransform.SetAsLastSibling();
+            hasLayout = true;
             SetOffset(Offset);
         }
         public void SetOffset(float offset)
@@ -171,13 +173,16 @@ internal sealed partial class RetainedStatisticsShell
         }
         public void Cues()
         {
-            if (Rect.rect.height <= 0) return;
+            if (!hasLayout || Rect.rect.height <= 0) return;
             var state = OverflowCuePolicy.Resolve(Rect.rect.height, Content.rect.height, Offset);
             top.enabled = state.ShowLeading; bottom.enabled = state.ShowTrailing;
         }
         private static RunsOverflowEdge Edge(RectTransform parent, string name, bool top)
         {
             var edge = Node(parent, name).gameObject.AddComponent<RunsOverflowEdge>();
+            // Deferred views expose their frame before sizing the inner scroll regions.
+            // Only measured overflow may reveal these contours, never the default rect.
+            edge.enabled = false;
             edge.Top = top; edge.color = new Color(1, 1, 1, .3f); edge.raycastTarget = false; return edge;
         }
         private static RectTransform Node(RectTransform parent, string name)
