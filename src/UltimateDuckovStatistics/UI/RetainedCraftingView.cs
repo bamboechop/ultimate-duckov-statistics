@@ -26,6 +26,14 @@ internal sealed partial class RetainedStatisticsShell
         private bool dirty = true, disposed;
         private CraftingViewport? restoreFocus;
         private string? restoreFocusId;
+        private bool awaitingData = true;
+        public RectTransform[] LoadingContainers => new[] { outputs.Panel, resources.Panel };
+        private void LayoutLoading()
+        {
+            var column = CraftingLayoutPolicy.ColumnWidth(width, CombatLayoutPolicy.Stack(pixels));
+            LayoutPendingColumns(outer, outputs.Panel, resources.Panel, width, height,
+                CombatLayoutPolicy.Stack(pixels), column, column);
+        }
         public CraftingView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action focusTabs)
         {
             this.typography = typography; this.material = material; this.focusTabs = focusTabs;
@@ -33,7 +41,7 @@ internal sealed partial class RetainedStatisticsShell
             outer = new ScrollRegion(root, "CraftingOuter", radius: 20); RoundedMask(outer);
             outputs = new CraftingViewport(this, outer.Content, "Outputs", "outputs");
             resources = new CraftingViewport(this, outer.Content, "Resources", "resources");
-            unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable");
+            unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable"); unavailable.gameObject.SetActive(false);
             measure = new CombatNativeTextMeasurement(Text(root, "Measurement", 28));
             outer.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
             outer.Rect.GetComponent<RunsFocusHandler>().Move = d =>
@@ -43,6 +51,7 @@ internal sealed partial class RetainedStatisticsShell
             ? measure.SectionHeight(value, Math.Max(1, w), size) : measure.Height(value, Math.Max(1, w), size);
         public void Refresh(CraftingPresentation? next)
         {
+            awaitingData = false;
             if (disposed) return; Capture();
             var focused = GameManager.EventSystem?.currentSelectedGameObject;
             restoreFocus = next != null && selection.Snapshot?.GenerationId == next.GenerationId && focused != null
@@ -75,6 +84,7 @@ internal sealed partial class RetainedStatisticsShell
             { Capture(); width = frame.Width; height = frame.Height; pixels = viewportPixels; dirty = true; }
             root.localScale = new Vector3(frame.Scale, frame.Scale, 1); Place(root, shell.Header.Left, frame.Top, width, height);
             if (!dirty || !root.gameObject.activeInHierarchy) return;
+            if (awaitingData) { dirty = false; LayoutLoading(); return; }
             dirty = false; Place(unavailable.rectTransform, 30, 30, width - 60, Measure(unavailable.text, width - 60, 30));
             if (selection.Snapshot == null) return;
             var stacked = CombatLayoutPolicy.Stack(pixels); var cw = CraftingLayoutPolicy.ColumnWidth(width, stacked);

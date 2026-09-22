@@ -625,7 +625,7 @@ public sealed partial class ShellAccessTests : IDisposable
     }
 
     private static bool ForeignShortcut() => true;
-    private static T Field<T>(NativeStatisticsPanel panel, string name) => (T)typeof(NativeStatisticsPanel)
+    private static T Field<T>(object panel, string name) => (T)panel.GetType()
         .GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(panel)!;
 
     private static void PreparePauseMenu(Canvas host)

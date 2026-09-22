@@ -49,12 +49,13 @@ namespace UnityEngine
     public class GameObject : Object
     {
         public static readonly List<GameObject> Live = new();
+        public static string? FailCreationOf;
         private readonly List<Component> components = new();
         public bool activeSelf = true;
         public bool activeInHierarchy => !Destroyed && activeSelf && (transform.parent?.gameObject.activeInHierarchy ?? true);
         public Transform transform { get; }
         public UnityEngine.SceneManagement.Scene scene => new();
-        public GameObject(string name, params Type[] types) { this.name = name; transform = new RectTransform { gameObject = this }; components.Add(transform); Live.Add(this); foreach (var type in types) if (type != typeof(RectTransform)) AddComponent(type); }
+        public GameObject(string name, params Type[] types) { if (name == FailCreationOf) throw new InvalidOperationException("Native object creation failed."); this.name = name; transform = new RectTransform { gameObject = this }; components.Add(transform); Live.Add(this); foreach (var type in types) if (type != typeof(RectTransform)) AddComponent(type); }
         public void SetActive(bool value) { activeSelf = value; NotifyTextActivation(); }
         internal void NotifyTextActivation()
         {
@@ -190,7 +191,7 @@ namespace TMPro
     using UnityEngine;
     public enum FontWeight { Regular, Bold }
     public enum FontStyles { Normal, Bold, Italic }
-    public enum TextAlignmentOptions { Left, Center, Right, TopLeft, Top, TopRight, MidlineLeft, Midline, BottomLeft }
+    public enum TextAlignmentOptions { Left, Center, Right, TopLeft, Top, TopRight, MidlineLeft, Midline, BottomLeft, BottomRight }
     public enum TextOverflowModes { Overflow, Ellipsis, Truncate, Masking, ScrollRect }
     public class TMP_FontAsset : Object { public bool HasCharacter(char c, bool searchFallbacks = false, bool tryAddCharacter = false) => true; public bool HasCharacter(uint c, bool searchFallbacks = false, bool tryAddCharacter = false) => true; }
     public class TextMeshProUGUI : UnityEngine.UI.Graphic

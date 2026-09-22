@@ -9,6 +9,24 @@ namespace UltimateDuckovStatistics.Shell.Tests;
 
 public sealed partial class ShellAccessTests
 {
+    [Fact]
+    public void FailedFrameConstructionClosesThePanelAndAllowsAFreshRetry()
+    {
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        var root = Find(RetainedDimmerPolicy.RootName);
+        GameObject.FailCreationOf = "RecordsPage";
+        try { Find("RecordsTab").GetComponent<Button>().onClick.Invoke(); }
+        finally { GameObject.FailCreationOf = null; }
+        Frame(panel);
+        Assert.True(root.Destroyed);
+        Assert.Empty(InputManager.Blocks);
+        Assert.Contains(coordinator.Reports, report => report.Contains("Native object creation failed"));
+        Press(panel, KeyCode.F8);
+        Assert.True(Find("RecordsContentView").activeInHierarchy);
+        Assert.NotSame(root, Find(RetainedDimmerPolicy.RootName));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -44,12 +62,22 @@ public sealed partial class ShellAccessTests
         Assert.True(Find(RetainedDimmerPolicy.RootName).activeInHierarchy);
         Assert.False(Find("UdsViewLoading").activeInHierarchy);
         Assert.Null(Field<StatisticsPanelProjection?>(panel, "presentedProjection"));
+        var left = Find(RetainedOverviewLeftPanelPolicy.BackgroundName);
+        var right = Find(RetainedOverviewRightPanelPolicy.BackgroundName);
+        Assert.True(left.activeInHierarchy);
+        Assert.True(right.activeInHierarchy);
+        Assert.True(((RectTransform)left.transform).rect.width > 0);
+        Assert.True(((RectTransform)right.transform).rect.height > 0);
+        Assert.Same(left.transform, Find("UdsViewLoading").transform.parent);
+        Assert.Same(right.transform, Find("UdsViewLoading1").transform.parent);
         Assert.DoesNotContain(GameObject.Live, go => go.name == "OverviewSummaryScroll");
         Frame(panel);
         Assert.NotNull(Field<StatisticsPanelProjection?>(panel, "presentedProjection"));
         Assert.DoesNotContain(GameObject.Live, go => go.name == "OverviewSummaryScroll");
         Frame(panel);
         Assert.True(Find("OverviewSummaryScroll").activeInHierarchy);
+        Assert.Same(left, Find(RetainedOverviewLeftPanelPolicy.BackgroundName));
+        Assert.Same(right, Find(RetainedOverviewRightPanelPolicy.BackgroundName));
         Assert.False(Find("UdsViewLoading").activeInHierarchy);
         Assert.DoesNotContain(GameObject.Live, go => go.name == "CombatContentView" || go.name == "RecordsContentView" || go.name == "RunsView");
 
@@ -59,10 +87,84 @@ public sealed partial class ShellAccessTests
         Frame(panel);
         var records = Find("RecordsContentView");
         Assert.True(records.activeInHierarchy);
-        Assert.DoesNotContain(GameObject.Live, go => go.name == "CombatContentView");
+        Assert.False(Find("CombatContentView").activeInHierarchy);
+        Assert.DoesNotContain(GameObject.Live, go => go.name == "CombatRow");
         Find("OverviewTab").GetComponent<Button>().onClick.Invoke(); Tick(panel);
         Find("RecordsTab").GetComponent<Button>().onClick.Invoke(); Tick(panel);
         Assert.Same(records, Find("RecordsContentView"));
+    }
+
+    [Theory]
+    [InlineData("Combat", "CombatSelector", "CombatPage")]
+    [InlineData("Records", "Overall", null)]
+    [InlineData("ItemUse", "ItemUseCard", null)]
+    public void FirstTabSelectionShowsRealContainersWithoutPrematureValues(string tab, string firstPanel, string? secondPanel)
+    {
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        var shell = Field<RetainedStatisticsShell>(panel, "shell");
+        Find(tab + "Tab").GetComponent<Button>().onClick.Invoke();
+        var labels = Field<List<TextMeshProUGUI>>(shell, "loadingLabels");
+        var container = (RectTransform)labels[0].transform.parent!;
+        Assert.Equal(firstPanel, container.gameObject.name);
+        Assert.True(container.gameObject.activeInHierarchy);
+        Assert.True(container.rect.width > 1 && container.rect.height > 1);
+        Assert.False(labels[0].gameObject.activeInHierarchy);
+        if (secondPanel != null)
+        {
+            Assert.Equal(secondPanel, labels[1].transform.parent!.gameObject.name);
+            Assert.True(labels[1].transform.parent!.gameObject.activeInHierarchy);
+        }
+        Assert.DoesNotContain(GameObject.Live.SelectMany(go => go.GetComponents<TextMeshProUGUI>()),
+            text => text.gameObject.activeInHierarchy && (text.text == UiText.Get("ui.profile_unavailable")
+                || text.text == UiText.Get("ui.item_use_empty") || text.text == UiText.Get("ui.records_no_maps")));
+        Time.unscaledTime += .251f;
+        // Same frame: binding is still deferred, but the selected containers can show loading.
+        Assert.True(shell.Tick(out _));
+        Assert.True(labels[0].gameObject.activeInHierarchy);
+        Assert.Same(container, labels[0].transform.parent);
+        Frame(panel);
+        Assert.False(labels[0].gameObject.activeInHierarchy);
+        Assert.False(container.gameObject.Destroyed);
+        Assert.Empty(coordinator.Reports);
+    }
+
+    [Fact]
+    public void OverviewContainersSurviveDataRefreshResizeAndReopen()
+    {
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        var left = Find(RetainedOverviewLeftPanelPolicy.BackgroundName);
+        var right = Find(RetainedOverviewRightPanelPolicy.BackgroundName);
+        var previousContent = Find("OverviewSummaryScroll");
+        var oldWidth = ((RectTransform)left.transform).rect.width;
+        coordinator.Current.Revision++;
+        Tick(panel, 30);
+        Assert.NotSame(previousContent, Find("OverviewSummaryScroll"));
+        Assert.Same(left, Find(RetainedOverviewLeftPanelPolicy.BackgroundName));
+        Assert.Same(right, Find(RetainedOverviewRightPanelPolicy.BackgroundName));
+        ((RectTransform)canvas.transform).sizeDelta = new Vector2(960, 540);
+        Frame(panel);
+        Assert.True(((RectTransform)left.transform).rect.width < oldWidth);
+        Press(panel, KeyCode.Escape);
+        Assert.False(left.activeInHierarchy);
+        Press(panel, KeyCode.F8);
+        Assert.Same(left, Find(RetainedOverviewLeftPanelPolicy.BackgroundName));
+        Assert.Same(right, Find(RetainedOverviewRightPanelPolicy.BackgroundName));
+        Assert.True(left.activeInHierarchy && right.activeInHierarchy);
+        Assert.Empty(coordinator.Reports);
+    }
+
+    [Fact]
+    public void UnchangedOverviewReopenDoesNotRepeatTextMeasurements()
+    {
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        Tick(panel);
+        Press(panel, KeyCode.Escape);
+        var measured = TextMeshProUGUI.Measurements;
+        Press(panel, KeyCode.F8);
+        Assert.Equal(measured, TextMeshProUGUI.Measurements);
     }
 
     [Fact]

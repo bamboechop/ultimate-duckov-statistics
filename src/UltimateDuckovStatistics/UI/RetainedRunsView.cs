@@ -280,6 +280,9 @@ internal sealed partial class RetainedStatisticsShell
         private const float EncounterTabHeight =
             80;
 
+        private bool awaitingData = true;
+        public RectTransform[] LoadingContainers => new[] { historyPanel, detailPanel };
+
         public RunsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action focusTabs)
         {
             this.typography = typography; this.material = material;
@@ -296,6 +299,7 @@ internal sealed partial class RetainedStatisticsShell
             equipmentCombat.Rect.GetComponent<ProceduralImage>().color = new Color(0, 0, 0, .12f);
             measure = Text(root, "Measure", 28); measure.enabled = false;
             empty = Text(history.Content, "EmptyHistory", 28);
+            empty.gameObject.SetActive(false);
             title = Text(fixedDetail, "RunTitle", 48);
             metadata = Text(fixedDetail, "RunMetadata", 22);
             integrity = Text(fixedDetail, "RunIntegrity", 22);
@@ -338,10 +342,14 @@ internal sealed partial class RetainedStatisticsShell
             evidenceClose.onClick.AddListener(HideEvidence);
             evidencePanel.gameObject.SetActive(false);
             CreateEncounterView();
+            fixedDetail.gameObject.SetActive(false); encounterTabs.gameObject.SetActive(false);
         }
 
         public void Refresh(RunsPresentation? snapshot, string generation)
         {
+            awaitingData = false;
+            fixedDetail.gameObject.SetActive(!mapSelected);
+            encounterTabs.gameObject.SetActive(true);
             var previousId = selection.SelectedId;
             if (snapshot == null && selection.Snapshot != null)
                 suspendedScroll = (selection.Snapshot.GenerationId, selection.SelectedId, history.Offset, equipmentCombat.Offset, route.Offset, outer.Offset);
@@ -364,6 +372,7 @@ internal sealed partial class RetainedStatisticsShell
         public void SetVisible(bool visible) { if (!visible) HideEvidence(false); root.gameObject.SetActive(visible); if (visible) dirty = true; }
         public void FocusHistory()
         {
+            if (awaitingData) { focusTabs(); return; }
             if (dirty && width > 0) Reflow();
             var rows = selection.Snapshot?.Runs;
             var index = rows == null ? -1 : Array.FindIndex(rows.ToArray(), row => row.Id == selection.SelectedId);
@@ -496,6 +505,14 @@ internal sealed partial class RetainedStatisticsShell
             Place(root, shell.Header.Left, top, newWidth, newHeight);
             if (width != newWidth || height != newHeight || stacked != newStacked)
             { width = newWidth; height = newHeight; stacked = newStacked; dirty = true; }
+            if (awaitingData && root.gameObject.activeInHierarchy)
+            {
+                var hw = RunsLayoutPolicy.HistoryWidth(width, stacked);
+                LayoutPendingColumns(outer, historyPanel, detailPanel, width, height, stacked, hw,
+                    stacked ? width : width - hw - 40, Math.Min(400, height * .45f));
+                history.Size(0, 0, hw, historyPanel.rect.height, historyPanel.rect.height);
+                return;
+            }
             if (dirty && root.gameObject.activeInHierarchy) Reflow();
         }
 
@@ -714,7 +731,7 @@ internal sealed partial class RetainedStatisticsShell
 
         public void Tick()
         {
-            if (!root.gameObject.activeInHierarchy) return;
+            if (awaitingData || !root.gameObject.activeInHierarchy) return;
             TickEncounters();
             if (evidencePanel.gameObject.activeSelf)
             {

@@ -30,6 +30,15 @@ internal sealed partial class RetainedStatisticsShell
         private string? restoreFocusId;
         private readonly string[] pageKeys = { "ui.summary", "ui.enemies", "ui.combat_weapons_ammunition", "ui.incoming_damage" };
 
+        private bool awaitingData = true;
+        public RectTransform[] LoadingContainers => new[] { selector.Panel, primary.Panel };
+        private void LayoutLoading()
+        {
+            var columns = CombatLayoutPolicy.Widths(width, CombatLayoutPolicy.Stack(pixels));
+            LayoutPendingColumns(outer, selector.Panel, primary.Panel, width, height,
+                CombatLayoutPolicy.Stack(pixels), columns.Selector, columns.Page, 260);
+            ammunition.Panel.gameObject.SetActive(false);
+        }
         public CombatView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action focusTabs)
         {
             this.typography = typography; this.material = material; this.focusTabs = focusTabs;
@@ -38,8 +47,8 @@ internal sealed partial class RetainedStatisticsShell
             selector = new CombatViewport(this, outer.Content, "Selector", "selector");
             primary = new CombatViewport(this, outer.Content, "Page", "primary");
             ammunition = new CombatViewport(this, outer.Content, "Ammunition", "ammo");
-            unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable");
-            footer = Text(root, "FiringActionContract", 20); footer.text = UiText.Get("ui.combat_firing_footer");
+            unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable"); unavailable.gameObject.SetActive(false);
+            footer = Text(root, "FiringActionContract", 20); footer.text = UiText.Get("ui.combat_firing_footer"); footer.gameObject.SetActive(false);
             measure = new CombatNativeTextMeasurement(Text(root, "Measurement", 28));
             tooltip = new CombatTooltip(root, typography.Font, material);
             outer.Scroll.onValueChanged.AddListener(_ => tooltip.Dismiss());
@@ -53,6 +62,7 @@ internal sealed partial class RetainedStatisticsShell
         private CombatDocument Document() => new(Measure, MeasureWidth);
         public void Refresh(CombatPresentation? next)
         {
+            awaitingData = false;
             if (disposed) return;
             Capture();
             footer.text = UiText.Get("ui.combat_firing_footer");
@@ -114,6 +124,7 @@ internal sealed partial class RetainedStatisticsShell
             { Capture(); tooltip.Dismiss(); width = w; height = h; pixels = viewportPixels; dirty = true; }
             root.localScale = new Vector3(scale, scale, 1); Place(root, shell.Header.Left, top, w, h);
             if (!dirty || !root.gameObject.activeInHierarchy) return;
+            if (awaitingData) { dirty = false; LayoutLoading(); return; }
             dirty = false; Place(unavailable.rectTransform, 30, 30, width - 60, Measure(unavailable.text, width - 60, 30));
             var snapshot = selection.Snapshot; if (snapshot == null) return;
             var stacked = CombatLayoutPolicy.Stack(pixels); var widths = CombatLayoutPolicy.Widths(width, stacked);

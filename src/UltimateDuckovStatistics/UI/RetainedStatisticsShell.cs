@@ -444,14 +444,15 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 headerTitleTypography,
                 out var createdHeaderTitleGraphic);
             headerTitleGraphic = createdHeaderTitleGraphic;
-            CreateLoadingLabel();
             root.SetActive(RetainedTabMeasurementPolicy.RequiresActiveHierarchy);
             if (!root.activeInHierarchy)
             {
                 throw new InvalidOperationException(
                     "The retained tab labels could not enter the active hierarchy for native TMP measurement.");
             }
-            RefreshVisualLayout(force: true);
+            EnsureSelectedViewCreated();
+            ApplyViewVisibility();
+            LayoutSelectedView(RefreshVisualLayout(force: true));
             GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject);
             rootRect.SetAsLastSibling();
             return true;
@@ -597,21 +598,26 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         var summaryFocused = overviewSummaryScroll != null && GameManager.EventSystem?.currentSelectedGameObject == overviewSummaryScroll.Rect.gameObject;
         overviewDistanceTooltip?.Dispose();
         overviewDistanceTooltip = null;
-        overviewSummaryScroll?.Dispose();
-        overviewSummaryScroll = null;
-        overviewHighlightsScroll?.Dispose();
-        overviewHighlightsScroll = null;
         var retainedViewRun = overviewLatestRunViewRun;
         // Keep the selectable and its highlight alive across live projection refreshes.
         // Detach before disabling the old view so hover, press and focus are retained.
         retainedViewRun?.Rect.SetParent(shellRoot, worldPositionStays: false);
+        overviewSummaryScroll?.Dispose();
+        if (overviewSummaryScroll != null)
+        {
+            overviewSummaryScroll.Rect.gameObject.SetActive(false);
+            UnityEngine.Object.Destroy(overviewSummaryScroll.Rect.gameObject);
+        }
+        overviewSummaryScroll = null;
+        overviewHighlightsScroll?.Dispose();
+        if (overviewHighlightsScroll != null)
+        {
+            overviewHighlightsScroll.Rect.gameObject.SetActive(false);
+            UnityEngine.Object.Destroy(overviewHighlightsScroll.Rect.gameObject);
+        }
+        overviewHighlightsScroll = null;
         overviewLatestRunViewRun?.Button.onClick.RemoveAllListeners();
         overviewLatestRunBadge?.Dispose();
-        if (overviewContentView != null)
-        {
-            overviewContentView.SetActive(false);
-            UnityEngine.Object.Destroy(overviewContentView);
-        }
         overviewHighlightRows.Clear();
         overviewProfileSummaryRows.Clear();
         BuildOverview(shellRoot, overviewTypography, projection, retainedViewRun);
@@ -650,8 +656,20 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         selectedTab = tab;
         contentAfterFrame = Time.frameCount;
         loadingPendingSince = null;
-        ApplyViewVisibility();
         lastAppliedVisualLayout = null;
+        try
+        {
+            EnsureSelectedViewCreated();
+            ApplyViewVisibility();
+            LayoutSelectedView(RefreshVisualLayout(force: false));
+        }
+        catch (Exception exception)
+        {
+            // Button callbacks run outside Tick. Preserve its existing failure cleanup
+            // instead of allowing a partially constructed view to become reusable.
+            frameCreationError = $"{exception.GetType().Name}: {exception.Message}";
+            return;
+        }
         EnsureSelectedTabVisible();
         var focused = GameManager.EventSystem?.currentSelectedGameObject;
         if (focused == null || !focused.activeInHierarchy)
@@ -666,51 +684,44 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         error = null;
         try
         {
+            if (frameCreationError != null) { error = frameCreationError; return false; }
             if (!IsUsable) return true;
             BindSelectedView();
             UpdateLoadingLabel();
             var layout = RefreshVisualLayout(force: false);
+            LayoutSelectedView(layout);
             if (selectedTab == StatisticsPanelTab.Runs)
             {
-                runsView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
                 runsView?.Tick();
             }
             if (selectedTab == StatisticsPanelTab.Records)
             {
-                recordsView?.Layout(layout, shellRoot!.rect.height);
                 recordsView?.Tick();
             }
             if (selectedTab == StatisticsPanelTab.Combat)
             {
-                combatView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
                 combatView?.Tick();
             }
             if (selectedTab == StatisticsPanelTab.Equipment)
             {
-                equipmentView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
                 equipmentView?.Tick();
             }
             if (selectedTab == StatisticsPanelTab.Economy)
             {
-                economyView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
                 economyView?.Tick();
             }
             if (selectedTab == StatisticsPanelTab.Crafting)
             {
-                craftingView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
                 craftingView?.Tick();
             }
             if (selectedTab == StatisticsPanelTab.ItemUse)
             {
-                itemUseView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
                 itemUseView?.Tick();
             }
             if (selectedTab == StatisticsPanelTab.Diagnostics)
             {
-                diagnosticsView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
                 diagnosticsView?.Tick();
             }
-            if (selectedTab == StatisticsPanelTab.About) aboutView?.Layout(layout, shellRoot!.rect.height);
             modal?.Layout(layout, shellRoot!.rect.width, shellRoot.rect.height);
             return true;
         }
@@ -782,21 +793,13 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         StatisticsPanelProjection projection,
         RetainedLatestRunViewRunControl? retainedViewRun)
     {
-        var view = new GameObject(
-            RetainedOverviewLeftPanelPolicy.ViewName,
-            typeof(RectTransform));
+        EnsureOverviewFrame();
+        var view = overviewContentView!;
         var viewRect = (RectTransform)view.transform;
-        viewRect.SetParent(parent, worldPositionStays: false);
-        Stretch(viewRect);
-
-        leftPanelRect = CreateOverviewPanel(
-            viewRect,
-            RetainedOverviewLeftPanelPolicy.BackgroundName,
-            out leftPanelModifier);
-        rightPanelRect = CreateOverviewPanel(
-            viewRect,
-            RetainedOverviewRightPanelPolicy.BackgroundName,
-            out rightPanelModifier);
+        leftPanelRect = overviewLeftPanelRect!;
+        leftPanelModifier = overviewLeftPanelModifier!;
+        rightPanelRect = overviewRightPanelRect!;
+        rightPanelModifier = overviewRightPanelModifier!;
         overviewDistanceTooltip = new CombatTooltip(viewRect, typography.Font, headingMaterial);
         overviewSummaryScroll = new ScrollRegion(leftPanelRect, "OverviewSummaryScroll");
         overviewSummaryScroll.Scroll.onValueChanged.AddListener(_ => overviewDistanceTooltip.Dismiss());
@@ -1997,7 +2000,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             measuredTabWidths = preferredReferenceWidths = MeasureTabReferenceWidths(referenceTransform, canvasScaleFactor);
         var latestRunBadgeControl = overviewLatestRunBadge!;
         var latestRunViewRunControl = overviewLatestRunViewRun!;
-        var layout = overviewContentView == null || selectedTab != StatisticsPanelTab.Overview
+        var layout = overviewContentView == null || overviewLatestRunBadge == null || selectedTab != StatisticsPanelTab.Overview
             ? RetainedVisualLayoutPolicy.Create(referenceTransform, preferredReferenceWidths)
             : RetainedActiveMeasurementPolicy.Measure(
             overviewContentView.activeSelf, overviewContentView.SetActive, () =>
@@ -2090,14 +2093,6 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             layout.HeaderTitle.Width,
             layout.HeaderTitle.Height);
         headerTitleGraphic.fontSize = layout.HeaderTitle.FontSize;
-        if (loadingText != null)
-        {
-            var rect = loadingText.rectTransform;
-            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
-            rect.anchoredPosition = new Vector2(layout.OverviewLeftPanel.Left, -layout.OverviewLeftPanel.Top);
-            rect.sizeDelta = new Vector2(layout.OverviewLeftPanel.Width, 32);
-            loadingText.fontSize = layout.ReferenceTransform.CanvasLength(20);
-        }
         if (overviewContentView != null && selectedTab == StatisticsPanelTab.Overview)
         {
             leftPanelRect.anchoredPosition = new Vector2(
@@ -2114,6 +2109,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 layout.OverviewRightPanel.Width,
                 layout.OverviewRightPanel.Height);
             rightPanelModifier.Radius = layout.OverviewRightPanel.CornerRadius;
+        }
+        if (overviewLeftPanelContentRect != null && selectedTab == StatisticsPanelTab.Overview)
+        {
             leftPanelContentRect.anchoredPosition = new Vector2(
                 layout.OverviewLeftPanel.ContentLeft - layout.OverviewLeftPanel.Left,
                 -(layout.OverviewLeftPanel.ContentTop - layout.OverviewLeftPanel.Top));

@@ -29,6 +29,14 @@ internal sealed partial class RetainedStatisticsShell
         private EquipmentViewport? restoreFocus;
         private string? restoreFocusId;
         private static readonly string[] PageKeys = { "ui.loadouts", "ui.weapons", "ui.armor_and_gear", "ui.totems" };
+        private bool awaitingData = true;
+        public RectTransform[] LoadingContainers => new[] { selector.Panel, pagePanel };
+        private void LayoutLoading()
+        {
+            var columns = CombatLayoutPolicy.Widths(width, CombatLayoutPolicy.Stack(pixels));
+            LayoutPendingColumns(outer, selector.Panel, pagePanel, width, height,
+                CombatLayoutPolicy.Stack(pixels), columns.Selector, columns.Page, 260);
+        }
         public EquipmentView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action<string, string> route, Action focusTabs)
         {
             this.typography = typography; this.material = material; this.route = route; this.focusTabs = focusTabs;
@@ -40,7 +48,7 @@ internal sealed partial class RetainedStatisticsShell
             secondary = new EquipmentViewport(this, pagePanel, "Right", "secondary");
             primary.Panel.GetComponent<ProceduralImage>().color = Color.clear;
             secondary.Panel.GetComponent<ProceduralImage>().color = Color.clear;
-            unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable");
+            unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable"); unavailable.gameObject.SetActive(false);
             measure = new CombatNativeTextMeasurement(Text(root, "Measurement", 28));
             outer.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
             outer.Rect.GetComponent<RunsFocusHandler>().Move = d => { if (d == MoveDirection.Up || d == MoveDirection.Left) focusTabs(); else FocusSelector(); };
@@ -49,6 +57,7 @@ internal sealed partial class RetainedStatisticsShell
             ? measure.SectionHeight(value, Math.Max(1, w), size) : measure.Height(value, Math.Max(1, w), size);
         public void Refresh(EquipmentPresentation? next)
         {
+            awaitingData = false;
             if (disposed) return; Capture();
             var focused = GameManager.EventSystem?.currentSelectedGameObject;
             restoreFocus = next != null && selection.Snapshot?.GenerationId == next.GenerationId && focused != null
@@ -94,6 +103,7 @@ internal sealed partial class RetainedStatisticsShell
             { Capture(); width = frame.Width; height = frame.Height; pixels = viewportPixels; dirty = true; }
             root.localScale = new Vector3(frame.Scale, frame.Scale, 1); Place(root, shell.Header.Left, frame.Top, width, height);
             if (!dirty || !root.gameObject.activeInHierarchy) return;
+            if (awaitingData) { dirty = false; LayoutLoading(); return; }
             dirty = false; Place(unavailable.rectTransform, 30, 30, width - 60, Measure(unavailable.text, width - 60, 30));
             if (selection.Snapshot == null) return;
             var stacked = CombatLayoutPolicy.Stack(pixels); var widths = CombatLayoutPolicy.Widths(width, stacked);

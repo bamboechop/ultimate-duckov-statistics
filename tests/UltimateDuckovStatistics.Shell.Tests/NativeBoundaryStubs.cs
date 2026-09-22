@@ -99,6 +99,7 @@ namespace UltimateDuckovStatistics.UI
         {
             private readonly GameObject root;
             protected BoundaryView(RectTransform parent) { root = new GameObject(GetType().Name); root.transform.SetParent(parent); }
+            public RectTransform[] LoadingContainers => new[] { (RectTransform)root.transform };
             public void Refresh(object? value, string? generation = null) { }
             public void SetVisible(bool value) => root.SetActive(value);
             public void Layout(RetainedVisualCanvasLayout layout, params float[] dimensions) { }

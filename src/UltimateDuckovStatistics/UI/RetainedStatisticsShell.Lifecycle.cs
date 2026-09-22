@@ -10,8 +10,11 @@ internal sealed partial class RetainedStatisticsShell
     private readonly Dictionary<StatisticsPanelTab, long> boundViews = new();
     private long contentVersion;
     private int contentAfterFrame;
-    private TextMeshProUGUI? loadingText;
+    private readonly List<TextMeshProUGUI> loadingLabels = new();
+    private float loadingLayoutUnit = float.NaN;
+    private bool loadingLayoutHasContent;
     private float? loadingPendingSince;
+    private string? frameCreationError;
     private PanelOperationController? cachedOperations;
     private Action? changeHotkeyAction, cancelHotkeyAction;
     private Func<bool>? copyExportAction, copyDataAction;
@@ -28,9 +31,10 @@ internal sealed partial class RetainedStatisticsShell
         selectedTab = tab;
         contentAfterFrame = Time.frameCount;
         loadingPendingSince = null;
+        EnsureSelectedViewCreated();
         ApplyViewVisibility();
         RefreshStaticText();
-        RefreshVisualLayout(force: false);
+        LayoutSelectedView(RefreshVisualLayout(force: false));
         FocusSelectedTab();
     }
 
@@ -48,12 +52,12 @@ internal sealed partial class RetainedStatisticsShell
     public void RefreshDiagnostics(DiagnosticsPresentation? snapshot)
     {
         cachedDiagnostics = snapshot;
-        if (selectedTab == StatisticsPanelTab.Diagnostics && IsUsable) diagnosticsView?.Refresh(snapshot);
+        if (selectedTab == StatisticsPanelTab.Diagnostics && IsUsable && boundViews.ContainsKey(selectedTab)) diagnosticsView?.Refresh(snapshot);
     }
 
     private void SetViewsVisible(bool visible)
     {
-        overviewContentView?.SetActive(visible && selectedTab == StatisticsPanelTab.Overview && projectionAvailable);
+        overviewContentView?.SetActive(visible && selectedTab == StatisticsPanelTab.Overview);
         runsView?.SetVisible(visible && selectedTab == StatisticsPanelTab.Runs);
         recordsView?.SetVisible(visible && selectedTab == StatisticsPanelTab.Records);
         combatView?.SetVisible(visible && selectedTab == StatisticsPanelTab.Combat);
@@ -74,31 +78,66 @@ internal sealed partial class RetainedStatisticsShell
 
     private void UpdateLoadingLabel()
     {
-        if (loadingText == null) return;
-        var pending = !boundViews.TryGetValue(selectedTab, out var version) || version != contentVersion;
+        var pending = selectedTab != StatisticsPanelTab.About
+            && (!boundViews.TryGetValue(selectedTab, out var version) || version != contentVersion);
         if (pending) loadingPendingSince ??= Time.unscaledTime;
         else loadingPendingSince = null;
         // Fast loads should go straight to their content. Use unscaled time because
         // the native pause menu can stop gameplay time while the UI remains active.
         var visible = loadingPendingSince is { } since && Time.unscaledTime - since >= .25f;
-        if (visible)
+        foreach (var label in loadingLabels)
         {
-            var text = UiText.Get(boundViews.ContainsKey(selectedTab) ? "ui.refreshing" : "ui.overview_highlights_loading");
-            if (loadingText.text != text) loadingText.text = text;
+            var show = visible && label.transform.parent != shellRoot;
+            if (show)
+            {
+                var text = UiText.Get(boundViews.ContainsKey(selectedTab) ? "ui.refreshing" : "ui.overview_highlights_loading");
+                if (label.text != text) label.text = text;
+                label.rectTransform.SetAsLastSibling();
+            }
+            if (label.gameObject.activeSelf != show) label.gameObject.SetActive(show);
         }
-        if (loadingText.gameObject.activeSelf != visible) loadingText.gameObject.SetActive(visible);
     }
 
-    private void CreateLoadingLabel()
+    private void AttachLoadingLabels(RectTransform[] containers)
     {
-        var go = new GameObject("UdsViewLoading", typeof(RectTransform));
-        go.transform.SetParent(shellRoot, false);
-        loadingText = go.AddComponent<TextMeshProUGUI>();
-        loadingText.font = overviewTypography!.Font;
-        loadingText.fontSharedMaterial = overviewTypography.Material;
-        loadingText.raycastTarget = false;
-        loadingText.color = new Color(.7f, .7f, .7f, 1);
+        loadingLayoutUnit = float.NaN;
+        while (loadingLabels.Count < containers.Length)
+        {
+            var index = loadingLabels.Count;
+            var go = new GameObject(index == 0 ? "UdsViewLoading" : "UdsViewLoading" + index, typeof(RectTransform));
+            go.transform.SetParent(shellRoot, false);
+            var text = go.AddComponent<TextMeshProUGUI>();
+            text.font = overviewTypography!.Font;
+            text.fontSharedMaterial = tabLabelMaterial!.Instance;
+            text.raycastTarget = false;
+            text.color = new Color(.7f, .7f, .7f, 1);
+            text.enableWordWrapping = true;
+            loadingLabels.Add(text);
+        }
+        for (var i = 0; i < loadingLabels.Count; i++)
+        {
+            var label = loadingLabels[i];
+            label.gameObject.SetActive(false);
+            label.rectTransform.SetParent(i < containers.Length ? containers[i] : shellRoot, false);
+        }
         UpdateLoadingLabel();
+    }
+
+    private void LayoutLoadingLabels(float scale)
+    {
+        var unit = selectedTab == StatisticsPanelTab.Overview ? scale : 1;
+        var hasContent = boundViews.ContainsKey(selectedTab);
+        if (loadingLayoutUnit == unit && loadingLayoutHasContent == hasContent) return;
+        loadingLayoutUnit = unit; loadingLayoutHasContent = hasContent;
+        foreach (var label in loadingLabels)
+        {
+            var rect = label.rectTransform;
+            rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(24 * unit, 24 * unit);
+            rect.offsetMax = new Vector2(-24 * unit, -24 * unit);
+            label.fontSize = 20 * unit;
+            label.alignment = hasContent ? TextAlignmentOptions.BottomRight : TextAlignmentOptions.Center;
+        }
     }
 
     private void BindSelectedView()
@@ -111,9 +150,6 @@ internal sealed partial class RetainedStatisticsShell
             UltimateDuckovStatistics.Adapters.NativeHotPathArea.PanelViewBind);
 #endif
         var p = cachedProjection;
-        var parent = shellRoot!;
-        var typography = overviewTypography!;
-        var material = tabLabelMaterial!.Instance;
         lastAppliedVisualLayout = null;
         switch (selectedTab)
         {
@@ -121,47 +157,37 @@ internal sealed partial class RetainedStatisticsShell
                 RebuildOverview(p, cachedGeneration);
                 break;
             case StatisticsPanelTab.Runs:
-                runsView ??= new RunsView(parent, typography, material, FocusSelectedTab);
                 RefreshRuns(p, cachedGeneration);
                 if (pendingRunRoute is { } route)
                 {
                     pendingRunRoute = null;
-                    if (route.Generation == cachedGeneration) runsView.Route(route.Generation, route.Id);
+                    if (route.Generation == cachedGeneration) runsView!.Route(route.Generation, route.Id);
                 }
                 break;
             case StatisticsPanelTab.Records:
-                recordsView ??= new RecordsView(parent, typography, material, RouteToRun, FocusSelectedTab);
-                recordsView.Refresh(RecordsPresentationFactory.Create(p, cachedGeneration));
+                recordsView!.Refresh(RecordsPresentationFactory.Create(p, cachedGeneration));
                 break;
             case StatisticsPanelTab.Combat:
-                combatView ??= new CombatView(parent, typography, material, FocusSelectedTab);
-                combatView.Refresh(CombatPresentationFactory.Create(p, cachedGeneration, isThrowable: NativeThrowableIdentity.IsThrowable));
+                combatView!.Refresh(CombatPresentationFactory.Create(p, cachedGeneration, isThrowable: NativeThrowableIdentity.IsThrowable));
                 break;
             case StatisticsPanelTab.Equipment:
-                equipmentView ??= new EquipmentView(parent, typography, material, RouteToRun, FocusSelectedTab);
-                equipmentView.Refresh(EquipmentPresentationFactory.Create(p, cachedGeneration));
+                equipmentView!.Refresh(EquipmentPresentationFactory.Create(p, cachedGeneration));
                 break;
             case StatisticsPanelTab.Economy:
-                economyView ??= new EconomyView(parent, typography, material, RouteToRun, FocusSelectedTab);
-                economyView.Refresh(EconomyPresentationFactory.Create(p, cachedGeneration));
+                economyView!.Refresh(EconomyPresentationFactory.Create(p, cachedGeneration));
                 break;
             case StatisticsPanelTab.Crafting:
-                craftingView ??= new CraftingView(parent, typography, material, FocusSelectedTab);
-                craftingView.Refresh(CraftingPresentationFactory.Create(p, cachedGeneration));
+                craftingView!.Refresh(CraftingPresentationFactory.Create(p, cachedGeneration));
                 break;
             case StatisticsPanelTab.ItemUse:
-                itemUseView ??= new ItemUseView(parent, typography, material, RouteToRun, FocusSelectedTab);
-                itemUseView.Refresh(ItemUsePresentationFactory.Create(p, cachedGeneration));
+                itemUseView!.Refresh(ItemUsePresentationFactory.Create(p, cachedGeneration));
                 break;
             case StatisticsPanelTab.Diagnostics:
-                diagnosticsView ??= new DiagnosticsView(parent, typography, material, cachedOperations!,
-                    changeHotkeyAction!, copyExportAction!, copyDataAction!, FocusSelectedTab);
-                diagnosticsView.Refresh(cachedDiagnostics);
+                diagnosticsView!.Refresh(cachedDiagnostics);
                 EnsureModal();
                 break;
             case StatisticsPanelTab.About:
-                aboutView ??= new AboutView(parent, typography, material, FocusSelectedTab);
-                aboutView.RefreshText();
+                aboutView!.RefreshText();
                 break;
         }
         boundViews[selectedTab] = contentVersion;
@@ -177,8 +203,10 @@ internal sealed partial class RetainedStatisticsShell
         changeHotkeyAction = cancelHotkeyAction = null;
         copyExportAction = copyDataAction = null;
         pendingRunRoute = null;
-        loadingText = null;
+        loadingLabels.Clear();
+        loadingLayoutUnit = float.NaN;
         loadingPendingSince = null;
+        frameCreationError = null;
         boundViews.Clear();
         contentVersion = 0;
     }
