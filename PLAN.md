@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics — Master Implementation Plan
 
-Current target: **1.2.0**, including the retained UI improvements merged through [PR #28](https://github.com/bamboechop/ultimate-duckov-statistics/pull/28). GitHub [1.1.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.1.0) and [1.1.1](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.1.1) were published on September 16, 2026. M0-M18 and the scoped playtest follow-ups below are complete, including performance, storage, export/restore, encounter history and kill-distance highlights. The first Workshop listing and subscription-install verification remain pending. [Release notes](RELEASE_NOTES.md) describe the scope; [release preparation](docs/RELEASE_PROCESS.md) tracks exact-source packaging and publication. The milestone specifications and earlier delivery facts below are historical context, not a queue to repeat completed work.
+[GitHub 1.2.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.2.0) was published on September 22, 2026, including the retained UI improvements merged through [PR #28](https://github.com/bamboechop/ultimate-duckov-statistics/pull/28). M0-M18 and the scoped playtest follow-ups below are complete, including performance, storage, export/restore, encounter history and kill-distance highlights. The first Workshop listing and subscription-install verification remain pending. [Release notes](RELEASE_NOTES.md) describe the scope; the [release procedure](docs/RELEASE_PROCESS.md) covers publication and Workshop installation. The milestone specifications and earlier delivery facts below are historical context, not a queue to repeat completed work.
 
 ## Current playtest follow-ups — 2026-09-11
 
@@ -37,7 +37,7 @@ The [production integration](docs/COMBAT_ENCOUNTER_PRODUCTION.md) enables automa
 ## Retained UI and 1.2.0 delivery
 
 - [x] **Retained UI behavior:** immediate containers, deferred binding, delayed loading indicators and cached reopening; the user confirmed smooth opening and the final visual corrections on September 22, 2026. [PR #28](https://github.com/bamboechop/ultimate-duckov-statistics/pull/28) merged the implementation. See [behavior and qualification](docs/RETAINED_UI_RESPONSIVENESS_EXPERIMENT.md).
-- [ ] **1.2.0 publication:** qualify the versioned package, merge the release preparation, verify the final source and publish the GitHub release through the [release procedure](docs/RELEASE_PROCESS.md).
+- [x] **1.2.0 publication — September 22, 2026:** [v1.2.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.2.0) was published from `52c6c4537ad51fa75557671adaaaf6cef9b54716`. The final merged tree, reproducible package, tag and public downloads passed [independent verification](docs/V1_2_0_PUBLICATION.json).
 - [ ] **Steam Workshop:** create the first listing from the qualified version and verify the subscribed installation. GitHub publication does not complete this step.
 
 ## 1. Project and delivery contract

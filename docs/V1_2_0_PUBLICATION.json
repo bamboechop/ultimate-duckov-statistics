@@ -1,0 +1,94 @@
+{
+  "Version": "1.2.0",
+  "ReleaseUrl": "https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.2.0",
+  "ReleaseId": 393848491,
+  "PublishedUtc": "2026-09-22T15:11:20Z",
+  "Tag": "v1.2.0",
+  "TagCommit": "52c6c4537ad51fa75557671adaaaf6cef9b54716",
+  "SourceTree": "4705cd5f2a831f07af46a45f1adaabcaef6cd51d",
+  "Draft": false,
+  "Prerelease": false,
+  "Verification": "Passed: independently downloaded public ZIP and checksum; exact 13-file extraction matches the qualified package.",
+  "VerifiedUtc": "2026-09-22T15:15:33.6200956Z",
+  "Archive": {
+    "Name": "UltimateDuckovStatistics-v1.2.0.zip",
+    "AssetId": 581640518,
+    "Bytes": 2964565,
+    "SHA256": "2716300249e36995d81d41ee43ae88ba034f70c5efbd5fdbf6874251283f069b"
+  },
+  "Checksum": {
+    "Name": "UltimateDuckovStatistics-v1.2.0.zip.sha256",
+    "AssetId": 581640517,
+    "Bytes": 102,
+    "SHA256": "7934d9ff0c705b6c2a3be991db502f59daa5b0b673a96d392e97f32d32938772"
+  },
+  "Files": {
+    "info.ini": {
+      "Bytes": 440,
+      "SHA256": "99df818eb631dd14f435649eb1874f0917ed71c2165558996ae00d81259be4ec"
+    },
+    "INSTALL.md": {
+      "Bytes": 12815,
+      "SHA256": "8c034e5a160f2d8430c4454824771bf6f5ae71f408cf8b2b872e455b7b9a9bc8"
+    },
+    "LICENSE": {
+      "Bytes": 1096,
+      "SHA256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    "preview.png": {
+      "Bytes": 641450,
+      "SHA256": "cf80596ef04449a855ffb211eea085748b8b5ff71037f36053f876c7bd320b7e"
+    },
+    "SQLITE_DEPENDENCIES.md": {
+      "Bytes": 3050,
+      "SHA256": "2040e82ce9b416438e7c1b6c734adb94f3328ddfce8f079d1e1e3d745e173481"
+    },
+    "sqlite3.dll": {
+      "Bytes": 3285504,
+      "SHA256": "ab57d0437795ecc757cb693f32ea224173fa9856594d95cfa6b5033e645cd1ec"
+    },
+    "SQLitePCLRaw-LICENSE.txt": {
+      "Bytes": 11358,
+      "SHA256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "SQLitePCLRaw-NOTICE.txt": {
+      "Bytes": 1697,
+      "SHA256": "5a1ab2f670f86dd2f8d42e40a8459cc278ca6d5225a7e2a5fa3ea0184396a6d9"
+    },
+    "UdsPrototype.SQLiteRaw.Core.dll": {
+      "Bytes": 51200,
+      "SHA256": "8db3fbec9933c6c95b8253439d5fbe93c109484a79bb44054b050df75fde9880"
+    },
+    "UdsPrototype.SQLiteRaw.Provider.dll": {
+      "Bytes": 68096,
+      "SHA256": "b67049204702ef53ca9799d5416fa1ce344e2f984bbf7b079bf2737a00c55cc7"
+    },
+    "UltimateDuckovStatistics.Core.dll": {
+      "Bytes": 776704,
+      "SHA256": "3888bdef0189912e7742b476c97b329f2cdb0e0bfc4646fd309d9c461de51d1a"
+    },
+    "UltimateDuckovStatistics.dll": {
+      "Bytes": 1542144,
+      "SHA256": "4b0ade6d099122e9e5460efdcb259d84dc39e1239cba9d8c587cc48623b5bb06"
+    },
+    "UltimateDuckovStatistics.Sqlite.dll": {
+      "Bytes": 77824,
+      "SHA256": "eb8d306d32ab99b2bca5a0102bffe408ca1d8e0ef6b63d85e4e1cd91ab0c131b"
+    }
+  },
+  "Qualification": {
+    "TestedSourceCommit": "1584380a200c642ad051b7a244c2783d7ee8ce34",
+    "IdenticalTestedTree": true,
+    "MainTestsPerConfiguration": 2481,
+    "OrdinaryShellTestsPerConfiguration": 116,
+    "DiagnosticShellTestsPerConfiguration": 118,
+    "Configurations": [
+      "Debug",
+      "Release"
+    ],
+    "MergedSourceReproducibility": "Identical UDS DLLs/PDBs and ZIP from two independent roots",
+    "NativeBaseline": "Duckov 2.3.30; Steam build 24013657; Unity 2022.3.62f2; HarmonyLib 2.4.1.0",
+    "DotnetSdk": "8.0.425"
+  },
+  "Boundaries": "GitHub publication and package readback only. Native UI acceptance and measured limits are recorded separately; this does not establish Workshop publication or subscription-install qualification."
+}
