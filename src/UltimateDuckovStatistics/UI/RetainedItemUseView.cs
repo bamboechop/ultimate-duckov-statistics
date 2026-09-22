@@ -144,7 +144,7 @@ internal sealed partial class RetainedStatisticsShell
                 public void Dispose()
                 {
                     Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null;
-                    Row = null; Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); Badge?.Dispose();
+                    Row = null; if (Icon != null) Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); Badge?.Dispose();
                 }
             }
             public ItemUseViewport(ItemUseView owner, RectTransform parent, string region)
@@ -365,7 +365,7 @@ internal sealed partial class RetainedStatisticsShell
         public void Dispose()
         {
             if (disposed) return; disposed = true; left.Dispose(); right.Dispose(); outer.Dispose(); selection.Refresh(null);
-            root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject);
+            if (root != null) { root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject); }
         }
     }
 }

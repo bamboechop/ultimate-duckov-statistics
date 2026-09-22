@@ -197,7 +197,7 @@ internal sealed partial class RetainedStatisticsShell
                 public CombatTooltipTrigger Tooltip = null!;
                 public CombatRenderRow? Row;
                 public void Dispose()
-                { Tooltip.Bind(null, ""); Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); }
+                { Tooltip.Bind(null, ""); Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; if (Icon != null) Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); }
             }
             public CombatViewport(CombatView owner, RectTransform parent, string name, string region)
             {
@@ -428,7 +428,7 @@ internal sealed partial class RetainedStatisticsShell
         {
             if (disposed) return; disposed = true;
             selector.Dispose(); primary.Dispose(); ammunition.Dispose(); tooltip.Dispose(); outer.Dispose(); selection.Refresh(null);
-            root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject);
+            if (root != null) { root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject); }
         }
     }
 }

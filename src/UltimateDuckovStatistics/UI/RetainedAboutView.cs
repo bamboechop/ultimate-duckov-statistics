@@ -91,8 +91,9 @@ internal sealed partial class RetainedStatisticsShell
         public void Dispose()
         {
             if (disposed) return; disposed = true;
-            scroll.Rect.GetComponent<RunsFocusHandler>().Move = null;
-            scroll.Dispose(); root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject);
+            if (scroll.Rect != null) scroll.Rect.GetComponent<RunsFocusHandler>().Move = null;
+            scroll.Dispose();
+            if (root != null) { root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject); }
         }
     }
 }

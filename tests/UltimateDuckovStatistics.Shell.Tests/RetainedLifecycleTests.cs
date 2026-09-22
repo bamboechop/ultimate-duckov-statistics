@@ -9,6 +9,30 @@ namespace UltimateDuckovStatistics.Shell.Tests;
 
 public sealed partial class ShellAccessTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DisposingCachedViewsAfterNativeHostDestructionReleasesRemainingOwnedResources(bool closed)
+    {
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        foreach (var tab in new[] { "Records", "Combat", "ItemUse", "About", "Diagnostics", "Overview" })
+        {
+            Find(tab + "Tab").GetComponent<Button>().onClick.Invoke(); Tick(panel);
+        }
+        var ownedMaterial = Find("OverviewTabLabel").GetComponent<TextMeshProUGUI>().fontSharedMaterial;
+        if (closed) Press(panel, KeyCode.Escape);
+        UnityEngine.Object.Destroy(Find(RetainedDimmerPolicy.RootName));
+        // Unlike a managed stub field, Unity's Component.gameObject throws after native destruction.
+        Component.RejectDestroyedAccess = true;
+        try { panel.Dispose(); }
+        finally { Component.RejectDestroyedAccess = false; }
+        Assert.True(ownedMaterial.Destroyed);
+        Assert.Empty(InputManager.Blocks);
+        Assert.Equal(0, coordinator.ProfileListeners);
+        Assert.Equal(0, UIInputManager.CancelListeners);
+    }
+
     [Fact]
     public void FirstOpenPaintsShellBeforeProjectionAndBuildsOnlyTheSelectedView()
     {

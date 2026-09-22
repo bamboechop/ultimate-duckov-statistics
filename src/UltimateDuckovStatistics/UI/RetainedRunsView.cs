@@ -189,7 +189,7 @@ internal sealed partial class RetainedStatisticsShell
         { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero; }
         private static void Place(RectTransform rect, float x, float y, float width, float height)
         { rect.anchoredPosition = new Vector2(x, -y); rect.sizeDelta = new Vector2(width, height); }
-        public void Dispose() => Scroll.onValueChanged.RemoveAllListeners();
+        public void Dispose() { if (Scroll != null) Scroll.onValueChanged.RemoveAllListeners(); }
     }
 
     private sealed partial class RunsView : IDisposable
@@ -923,7 +923,7 @@ internal sealed partial class RetainedStatisticsShell
             if (disposed) return; disposed = true;
             rowPool.Dispose();
             DisposeEncounters();
-            evidencePanel.gameObject.SetActive(false); evidenceOwner = null;
+            if (evidencePanel != null) evidencePanel.gameObject.SetActive(false); evidenceOwner = null;
             evidenceClose.onClick.RemoveAllListeners();
             foreach (var slot in slots) slot.Button.onClick.RemoveAllListeners();
             detailBadge?.Dispose(); routeBadge?.Dispose();

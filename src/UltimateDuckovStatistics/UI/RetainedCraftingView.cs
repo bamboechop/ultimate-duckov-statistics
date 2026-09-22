@@ -125,7 +125,7 @@ internal sealed partial class RetainedStatisticsShell
                 public void Dispose()
                 {
                     Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null;
-                    Row = null; Icon.sprite = null; NativeItemIconAppearance.Clear(Icon);
+                    Row = null; if (Icon != null) Icon.sprite = null; NativeItemIconAppearance.Clear(Icon);
                 }
             }
             public CraftingViewport(CraftingView owner, RectTransform parent, string name, string region)
@@ -304,7 +304,7 @@ internal sealed partial class RetainedStatisticsShell
         {
             if (disposed) return; disposed = true;
             outputs.Dispose(); resources.Dispose(); outer.Dispose(); selection.Refresh(null);
-            root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject);
+            if (root != null) { root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject); }
         }
     }
 }

@@ -132,7 +132,8 @@ internal sealed partial class RetainedStatisticsShell
         }
         private static void Release(Card card)
         {
-            card.Dispose(); card.Root.gameObject.SetActive(false); UnityEngine.Object.Destroy(card.Root.gameObject);
+            card.Dispose();
+            if (card.Root != null) { card.Root.gameObject.SetActive(false); UnityEngine.Object.Destroy(card.Root.gameObject); }
         }
         public void SetVisible(bool visible)
         {

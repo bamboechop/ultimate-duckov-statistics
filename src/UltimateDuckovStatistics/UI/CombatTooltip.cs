@@ -52,11 +52,11 @@ internal sealed class CombatTooltip : IDisposable
     }
 
     public void Hide(CombatTooltipTrigger source) { if (ReferenceEquals(current, source)) Dismiss(); }
-    public void Dismiss() { current = null; panel.gameObject.SetActive(false); }
+    public void Dismiss() { current = null; if (panel != null) panel.gameObject.SetActive(false); }
     public void Dispose()
     {
         if (disposed) return;
-        Dismiss(); disposed = true; UnityEngine.Object.Destroy(panel.gameObject);
+        Dismiss(); disposed = true; if (panel != null) UnityEngine.Object.Destroy(panel.gameObject);
     }
     private static RectTransform Node(RectTransform parent, string name)
     {

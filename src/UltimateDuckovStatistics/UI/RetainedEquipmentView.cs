@@ -162,7 +162,7 @@ internal sealed partial class RetainedStatisticsShell
                 public RetainedLatestRunViewRunControl Route = null!;
                 public readonly List<ProceduralImage> Dots = new();
                 public void Dispose()
-                { Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); Tooltip.text = string.Empty; }
+                { Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; if (Icon != null) Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); Tooltip.text = string.Empty; }
             }
             public EquipmentViewport(EquipmentView owner, RectTransform parent, string name, string region)
             {
@@ -427,7 +427,7 @@ internal sealed partial class RetainedStatisticsShell
         {
             if (disposed) return; disposed = true;
             selector.Dispose(); primary.Dispose(); secondary.Dispose(); outer.Dispose(); selection.Refresh(null);
-            root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject);
+            if (root != null) { root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject); }
         }
     }
 }

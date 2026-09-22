@@ -23,7 +23,13 @@ namespace UnityEngine
     public enum HideFlags { None, DontSave, HideAndDontSave }
     public class Component : Object
     {
-        public GameObject gameObject = null!;
+        internal static bool RejectDestroyedAccess;
+        private GameObject owner = null!;
+        public GameObject gameObject
+        {
+            get => RejectDestroyedAccess && Destroyed ? throw new InvalidOperationException("Native component was destroyed.") : owner;
+            set => owner = value;
+        }
         public Transform transform => gameObject.transform;
         public T GetComponent<T>() where T : class => gameObject.GetComponent<T>();
         public T[] GetComponents<T>() where T : class => gameObject.GetComponents<T>();
@@ -78,7 +84,7 @@ namespace UnityEngine
             return clone;
         }
         public T[] GetComponentsInChildren<T>(bool includeInactive = false) where T : class => components.OfType<T>().Concat(transform.Children.Where(t => includeInactive || t.gameObject.activeInHierarchy).SelectMany(t => t.gameObject.GetComponentsInChildren<T>(includeInactive))).ToArray();
-        internal void DestroyTree() { activeSelf = false; foreach (var child in transform.Children.ToArray()) Destroy(child.gameObject); foreach (var component in components) component.Destroyed = true; transform.SetParent(null); Live.Remove(this); }
+        internal void DestroyTree() { activeSelf = false; foreach (var child in transform.Children.ToArray()) Destroy(child.gameObject); transform.SetParent(null); foreach (var component in components) component.Destroyed = true; Live.Remove(this); }
     }
     public class Transform : Component
     {

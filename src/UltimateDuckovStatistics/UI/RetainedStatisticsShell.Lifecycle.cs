@@ -34,6 +34,7 @@ internal sealed partial class RetainedStatisticsShell
 
     public void Hide()
     {
+        if (root == null) return; // The native canvas may already have destroyed its children.
         overviewDistanceTooltip?.Dismiss();
         modal?.Sync(false, false, string.Empty, string.Empty);
         // SetVisible also closes secondary evidence panels and pauses map work.

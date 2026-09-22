@@ -391,7 +391,7 @@ internal sealed partial class RetainedStatisticsShell
         {
             if (disposed) return; disposed = true;
             primary.Dispose(); recent.Dispose(); outer.Dispose(); selection.Refresh(null);
-            root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject);
+            if (root != null) { root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject); }
         }
     }
 }
