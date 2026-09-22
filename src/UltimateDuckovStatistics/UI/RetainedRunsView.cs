@@ -960,14 +960,18 @@ internal sealed partial class RetainedStatisticsShell
         var rect = (RectTransform)overlay.transform; rect.SetParent(button.transform, false);
         rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
         var graphic = overlay.AddComponent<ProceduralImage>(); graphic.raycastTarget = false;
+        // Native ColorTint tweens from the renderer's current color. A new renderer
+        // starts white, so initialize it transparently before enabling transitions.
+        graphic.canvasRenderer.SetColor(Color.clear);
         var highlightShape = overlay.AddComponent<UniformModifier>();
         highlightShape.Radius = buttonShape != null ? buttonShape.Radius : 10;
+        button.transition = Selectable.Transition.None;
         button.targetGraphic = graphic;
-        button.transition = Selectable.Transition.ColorTint;
         var colors = button.colors;
         colors.normalColor = Color.clear; colors.highlightedColor = new Color(1, 1, 1, .10f);
         colors.pressedColor = new Color(1, 1, 1, .20f); colors.selectedColor = new Color(1, 1, 1, .13f);
         colors.disabledColor = Color.clear; colors.fadeDuration = .1f; button.colors = colors;
+        button.transition = Selectable.Transition.ColorTint;
         button.gameObject.AddComponent<RunsButtonFeedback>().MatchShape(buttonShape, highlightShape);
     }
 }
