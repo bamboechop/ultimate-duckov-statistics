@@ -11,6 +11,7 @@ internal sealed partial class RetainedStatisticsShell
     private long contentVersion;
     private int contentAfterFrame;
     private TextMeshProUGUI? loadingText;
+    private float? loadingPendingSince;
     private PanelOperationController? cachedOperations;
     private Action? changeHotkeyAction, cancelHotkeyAction;
     private Func<bool>? copyExportAction, copyDataAction;
@@ -26,6 +27,7 @@ internal sealed partial class RetainedStatisticsShell
         shellRoot!.SetAsLastSibling();
         selectedTab = tab;
         contentAfterFrame = Time.frameCount;
+        loadingPendingSince = null;
         ApplyViewVisibility();
         RefreshStaticText();
         RefreshVisualLayout(force: false);
@@ -35,6 +37,7 @@ internal sealed partial class RetainedStatisticsShell
     public void Hide()
     {
         if (root == null) return; // The native canvas may already have destroyed its children.
+        loadingPendingSince = null;
         overviewDistanceTooltip?.Dismiss();
         modal?.Sync(false, false, string.Empty, string.Empty);
         // SetVisible also closes secondary evidence panels and pauses map work.
@@ -73,8 +76,17 @@ internal sealed partial class RetainedStatisticsShell
     {
         if (loadingText == null) return;
         var pending = !boundViews.TryGetValue(selectedTab, out var version) || version != contentVersion;
-        loadingText.text = UiText.Get(boundViews.ContainsKey(selectedTab) ? "ui.refreshing" : "ui.overview_highlights_loading");
-        loadingText.gameObject.SetActive(pending);
+        if (pending) loadingPendingSince ??= Time.unscaledTime;
+        else loadingPendingSince = null;
+        // Fast loads should go straight to their content. Use unscaled time because
+        // the native pause menu can stop gameplay time while the UI remains active.
+        var visible = loadingPendingSince is { } since && Time.unscaledTime - since >= .25f;
+        if (visible)
+        {
+            var text = UiText.Get(boundViews.ContainsKey(selectedTab) ? "ui.refreshing" : "ui.overview_highlights_loading");
+            if (loadingText.text != text) loadingText.text = text;
+        }
+        if (loadingText.gameObject.activeSelf != visible) loadingText.gameObject.SetActive(visible);
     }
 
     private void CreateLoadingLabel()
@@ -166,6 +178,7 @@ internal sealed partial class RetainedStatisticsShell
         copyExportAction = copyDataAction = null;
         pendingRunRoute = null;
         loadingText = null;
+        loadingPendingSince = null;
         boundViews.Clear();
         contentVersion = 0;
     }

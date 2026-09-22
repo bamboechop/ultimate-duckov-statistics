@@ -649,6 +649,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
 #endif
         selectedTab = tab;
         contentAfterFrame = Time.frameCount;
+        loadingPendingSince = null;
         ApplyViewVisibility();
         lastAppliedVisualLayout = null;
         EnsureSelectedTabVisible();
@@ -667,6 +668,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         {
             if (!IsUsable) return true;
             BindSelectedView();
+            UpdateLoadingLabel();
             var layout = RefreshVisualLayout(force: false);
             if (selectedTab == StatisticsPanelTab.Runs)
             {

@@ -42,7 +42,7 @@ public sealed partial class ShellAccessTests
         finally { Input.Down.Clear(); }
 
         Assert.True(Find(RetainedDimmerPolicy.RootName).activeInHierarchy);
-        Assert.True(Find("UdsViewLoading").activeInHierarchy);
+        Assert.False(Find("UdsViewLoading").activeInHierarchy);
         Assert.Null(Field<StatisticsPanelProjection?>(panel, "presentedProjection"));
         Assert.DoesNotContain(GameObject.Live, go => go.name == "OverviewSummaryScroll");
         Frame(panel);
@@ -55,7 +55,7 @@ public sealed partial class ShellAccessTests
 
         Find("CombatTab").GetComponent<Button>().onClick.Invoke();
         Find("RecordsTab").GetComponent<Button>().onClick.Invoke();
-        Assert.True(Find("UdsViewLoading").activeInHierarchy);
+        Assert.False(Find("UdsViewLoading").activeInHierarchy);
         Frame(panel);
         var records = Find("RecordsContentView");
         Assert.True(records.activeInHierarchy);
@@ -63,6 +63,43 @@ public sealed partial class ShellAccessTests
         Find("OverviewTab").GetComponent<Button>().onClick.Invoke(); Tick(panel);
         Find("RecordsTab").GetComponent<Button>().onClick.Invoke(); Tick(panel);
         Assert.Same(records, Find("RecordsContentView"));
+    }
+
+    [Fact]
+    public void LoadingLabelWaitsForSlowPendingContentAndResetsOnSelectionAndReopen()
+    {
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Input.Down.Add(KeyCode.F8);
+        try { Frame(panel); }
+        finally { Input.Down.Clear(); }
+        var shell = Field<RetainedStatisticsShell>(panel, "shell");
+        var label = Find("UdsViewLoading");
+        var started = Time.unscaledTime;
+        // Exercise the real shell with its projection still pending.
+        Time.unscaledTime = started + .249f;
+        Assert.True(shell.Tick(out _));
+        Assert.False(label.activeInHierarchy);
+        Time.unscaledTime = started + .251f;
+        Assert.True(shell.Tick(out _));
+        Assert.True(label.activeInHierarchy);
+
+        shell.SetSelectedTab(StatisticsPanelTab.Records);
+        Assert.False(label.activeInHierarchy);
+        Time.unscaledTime += .251f;
+        Assert.True(shell.Tick(out _));
+        Assert.True(label.activeInHierarchy);
+        shell.Hide();
+        Time.unscaledTime += 5;
+        shell.Show(StatisticsPanelTab.Overview);
+        Assert.False(label.activeInHierarchy);
+        Time.unscaledTime += .251f;
+        Assert.True(shell.Tick(out _));
+        Assert.True(label.activeInHierarchy);
+
+        Frame(panel);
+        Frame(panel);
+        Assert.True(Find("OverviewSummaryScroll").activeInHierarchy);
+        Assert.False(label.activeInHierarchy);
     }
 
     [Fact]
