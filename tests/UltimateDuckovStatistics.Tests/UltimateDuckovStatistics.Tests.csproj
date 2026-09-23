@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Fixtures/Encounters/*.jsonl.gz" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeBuffApplicationAdapter.cs" Link="ProductionAdapters/NativeBuffApplicationAdapter.cs" />
     <EmbeddedResource Include="Fixtures/Encounters/*.records.json.gz" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/EncounterEvidenceProjection.cs" Link="Encounters/EncounterEvidenceProjection.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/EncounterCapturePipeline.cs" Link="Encounters/EncounterCapturePipeline.cs" />

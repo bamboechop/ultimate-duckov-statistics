@@ -180,7 +180,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             if (!hookSupport.BuffApplication)
             {
                 diagnosticHandler(
-                    "Combat buff actor observation is unavailable because the healing-owned CharacterBuffManager.AddBuff callback is not trusted; dependent combat capabilities are disabled.");
+                    "Combat buff actor observation is unavailable because the shared CharacterBuffManager.AddBuff callback is not trusted; dependent combat capabilities are disabled.");
             }
             patchInspectionScheduler.Reset(DateTime.UtcNow, patchRegistrations.Length);
             SynchronizeMainCharacter();

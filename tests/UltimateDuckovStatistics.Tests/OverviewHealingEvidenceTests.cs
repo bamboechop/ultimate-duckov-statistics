@@ -14,9 +14,10 @@ public sealed class OverviewHealingEvidenceTests
     public void RepeatedPatcherInitializationFailureReportsOnceAndStillRecoversOnTick()
     {
         HarmonyLib.Harmony.ClearAll();
+        using var buffs = CreateBuffAdapter(out var buffBoundary);
         Assert.True(ReflectiveHarmonyPatcher.TryCreate(out var prior, out var detail), detail);
         var reports = new List<string>();
-        using var adapter = new NativeHealingAttributionAdapter(_ => { }, reports.Add, new NativeBuffApplicationObservationBoundary());
+        using var adapter = new NativeHealingAttributionAdapter(_ => { }, reports.Add, buffBoundary);
         var capabilityChanges = 0;
         adapter.CapabilityChanged += _ => capabilityChanges++;
         try
@@ -91,7 +92,8 @@ public sealed class OverviewHealingEvidenceTests
             // A foreign prefix makes real adapter activation fail before any capture is enabled.
             new HarmonyLib.Harmony("foreign-healing").Patch(typeof(Health).GetMethod(nameof(Health.AddHealth))!,
                 prefix: new HarmonyLib.HarmonyMethod(typeof(OverviewHealingEvidenceTests).GetMethod(nameof(ForeignPrefix), BindingFlags.NonPublic | BindingFlags.Static)!), postfix: null, transpiler: null, finalizer: null);
-            using var adapter = new NativeHealingAttributionAdapter(coordinator.HandleHealing, _ => { }, new NativeBuffApplicationObservationBoundary());
+            using var buffs = CreateBuffAdapter(out var buffBoundary);
+            using var adapter = new NativeHealingAttributionAdapter(coordinator.HandleHealing, _ => { }, buffBoundary);
             adapter.CapabilityChanged += coordinator.SetHealingCapability;
             var failed = adapter.Initialize();
             Assert.Equal(AdapterCapabilityState.DisabledIncompatible, failed.State);
@@ -177,7 +179,8 @@ public sealed class OverviewHealingEvidenceTests
             void ForeignPatch() => new HarmonyLib.Harmony("foreign-healing-run").Patch(typeof(Health).GetMethod(nameof(Health.AddHealth))!,
                 prefix: new HarmonyLib.HarmonyMethod(typeof(OverviewHealingEvidenceTests).GetMethod(nameof(ForeignPrefix), BindingFlags.NonPublic | BindingFlags.Static)!), postfix: null, transpiler: null, finalizer: null);
             if (disabledAtStart) ForeignPatch();
-            using var adapter = new NativeHealingAttributionAdapter(coordinator.HandleHealing, _ => { }, new NativeBuffApplicationObservationBoundary());
+            using var buffs = CreateBuffAdapter(out var buffBoundary);
+            using var adapter = new NativeHealingAttributionAdapter(coordinator.HandleHealing, _ => { }, buffBoundary);
             adapter.CapabilityChanged += Publish;
             Publish(adapter.Initialize());
             Assert.Equal(disabledAtStart ? AdapterCapabilityState.DisabledIncompatible : AdapterCapabilityState.Supported, adapter.Capability.State);
@@ -267,9 +270,11 @@ public sealed class OverviewHealingEvidenceTests
             if (loseCapture && restored > 0) Assert.Contains(UiText.Get("ui.runs_partial_values_notice"), detail.ValueNotice);
             // Restart against the same saved run after removing the conflicting patch.
             adapter.Dispose();
+            buffs.Dispose();
             HarmonyLib.Harmony.ClearAll();
             using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create); reopened.Initialize();
-            using var recoveredAdapter = new NativeHealingAttributionAdapter(reopened.HandleHealing, _ => { }, new NativeBuffApplicationObservationBoundary());
+            using var recoveredBuffs = CreateBuffAdapter(out var recoveredBuffBoundary);
+            using var recoveredAdapter = new NativeHealingAttributionAdapter(reopened.HandleHealing, _ => { }, recoveredBuffBoundary);
             recoveredAdapter.CapabilityChanged += reopened.SetHealingCapability;
             reopened.SetHealingCapability(recoveredAdapter.Initialize());
             Assert.Equal(AdapterCapabilityState.Supported, recoveredAdapter.Capability.State);
@@ -338,4 +343,12 @@ public sealed class OverviewHealingEvidenceTests
     }
 
     private static void ForeignPrefix() { }
+
+    private static NativeBuffApplicationAdapter CreateBuffAdapter(out NativeBuffApplicationObservationBoundary boundary)
+    {
+        boundary = new NativeBuffApplicationObservationBoundary();
+        var adapter = new NativeBuffApplicationAdapter(boundary, _ => { });
+        Assert.True(adapter.Initialize());
+        return adapter;
+    }
 }

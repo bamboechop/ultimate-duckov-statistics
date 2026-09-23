@@ -25,6 +25,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     private CharacterBuffManager? subscribedBuffManager;
     private bool lifecycleSubscribed;
     private bool retryWhenHarmonyLoads;
+    private bool retryWhenBuffObservationAvailable;
     private DateTime nextInitializationAttemptUtc;
     private string? lastHarmonyInitializationFailure;
     private readonly IncrementalPatchInspectionScheduler patchInspectionScheduler = new(TimeSpan.FromSeconds(2));
@@ -73,7 +74,15 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             return Capability;
         }
 
-        if (!TryResolveContracts(out var healthMethod, out var effectMethod, out var buffMethod, out var contractFailure))
+        if (!buffApplicationObservationBoundary.IsTrusted)
+        {
+            retryWhenBuffObservationAvailable = true;
+            SetCapability(Disabled("Healing attribution is unavailable until the shared buff application observer is trusted."));
+            return Capability;
+        }
+        retryWhenBuffObservationAvailable = false;
+
+        if (!TryResolveContracts(out var healthMethod, out var effectMethod, out var contractFailure))
         {
             retryWhenHarmonyLoads = false;
             SetCapability(Disabled(contractFailure));
@@ -101,7 +110,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         var patcher = createdPatcher;
         try
         {
-            foreach (var method in new[] { healthMethod, effectMethod, buffMethod })
+            foreach (var method in new[] { healthMethod, effectMethod })
             {
                 if (!patcher.IsPatchSetTrusted(
                         method,
@@ -118,7 +127,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 }
             }
 
-            var registrations = CreatePatchRegistrations(healthMethod, effectMethod, buffMethod);
+            var registrations = CreatePatchRegistrations(healthMethod, effectMethod);
             HealingHarmonyBridge.Attach(this);
             patcher.Patch(
                 healthMethod,
@@ -128,7 +137,6 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 effectMethod,
                 HealingHarmonyCallbacks.EffectPrefixMethod,
                 finalizer: HealingHarmonyCallbacks.EffectFinalizerMethod);
-            patcher.Patch(buffMethod, HealingHarmonyCallbacks.BuffPrefixMethod, HealingHarmonyCallbacks.BuffPostfixMethod);
             patchRegistrations = registrations;
             foreach (var registration in patchRegistrations)
             {
@@ -146,8 +154,6 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 }
                 registration.Stamp = stamp;
             }
-
-            buffApplicationObservationBoundary.MarkTrusted();
 
             RaidUtilities.OnNewRaid += OnRaidTransition;
             RaidUtilities.OnRaidEnd += OnRaidTransition;
@@ -194,10 +200,15 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             Initialize();
         }
 
+        if (retryWhenBuffObservationAvailable && buffApplicationObservationBoundary.IsTrusted)
+            Initialize();
+
         if (Capability.State != AdapterCapabilityState.Supported)
         {
             return;
         }
+
+        if (!HasTrustedBuffDependency()) return;
 
         if (!InspectNextPatchStamp(nowUtc)) return;
 
@@ -319,12 +330,17 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     public string? TryGetUseCorrelation(int runtimeItemId) => tracker.TryGetUseCorrelation(runtimeItemId);
 
+    public bool CanObserveBuffProvenance => Capability.State == AdapterCapabilityState.Supported
+                                            && buffApplicationObservationBoundary.IsTrusted;
+
     public bool IsPatchPointTrusted(HealingPatchPoint patchPoint)
     {
         if (Capability.State != AdapterCapabilityState.Supported)
         {
             return false;
         }
+
+        if (!HasTrustedBuffDependency()) return false;
 
         foreach (var registration in patchRegistrations)
         {
@@ -429,7 +445,6 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     private static bool TryResolveContracts(
         out MethodInfo healthMethod,
         out MethodInfo effectMethod,
-        out MethodInfo buffMethod,
         out string failure)
     {
         if (!HealingNativeContractResolver.TryResolve(
@@ -441,18 +456,16 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 typeof(CharacterMainControl),
                 out var resolvedHealth,
                 out var resolvedEffect,
-                out var resolvedBuff,
+                out _,
                 out failure))
         {
             healthMethod = null!;
             effectMethod = null!;
-            buffMethod = null!;
             return false;
         }
 
         healthMethod = resolvedHealth!;
         effectMethod = resolvedEffect!;
-        buffMethod = resolvedBuff!;
         return true;
     }
 
@@ -466,8 +479,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     private static PatchRegistration[] CreatePatchRegistrations(
         MethodInfo healthMethod,
-        MethodInfo effectMethod,
-        MethodInfo buffMethod) =>
+        MethodInfo effectMethod) =>
     [
         new PatchRegistration(
             HealingPatchPoint.Health,
@@ -482,13 +494,6 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             [
                 new HarmonyPatchExpectation("Prefixes", HealingHarmonyCallbacks.EffectPrefixMethod),
                 new HarmonyPatchExpectation("Finalizers", HealingHarmonyCallbacks.EffectFinalizerMethod)
-            ]),
-        new PatchRegistration(
-            HealingPatchPoint.Buff,
-            buffMethod,
-            [
-                new HarmonyPatchExpectation("Prefixes", HealingHarmonyCallbacks.BuffPrefixMethod),
-                new HarmonyPatchExpectation("Postfixes", HealingHarmonyCallbacks.BuffPostfixMethod)
             ])
     ];
 
@@ -520,6 +525,14 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         }
 
         return patcher.IsPatchSetStampCurrent(registration.Stamp, out detail);
+    }
+
+    private bool HasTrustedBuffDependency()
+    {
+        if (buffApplicationObservationBoundary.IsTrusted) return true;
+        SchedulePatchSetConflict(null, "The shared buff application observer is no longer trusted.");
+        retryWhenBuffObservationAvailable = true;
+        return false;
     }
 
     private void SchedulePatchSetConflict(MethodInfo? method, string detail)
@@ -577,7 +590,6 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     private void DetachRuntimeHooks()
     {
-        buffApplicationObservationBoundary.MarkUntrusted();
         if (lifecycleSubscribed)
         {
             RaidUtilities.OnNewRaid -= OnRaidTransition;
