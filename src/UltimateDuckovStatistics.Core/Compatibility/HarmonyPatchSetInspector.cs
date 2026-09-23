@@ -35,7 +35,8 @@ public static class HarmonyPatchSetInspector
         object? patchInfo,
         string expectedOwner,
         IReadOnlyList<HarmonyPatchExpectation> expectedOwnedPatches,
-        out string detail)
+        out string detail,
+        Func<string, object, bool>? compatibleForeignPatch = null)
     {
         if (string.IsNullOrWhiteSpace(expectedOwner))
         {
@@ -60,6 +61,7 @@ public static class HarmonyPatchSetInspector
         }
 
         var matched = new bool[expectedOwnedPatches.Count];
+        var acceptedForeign = new HashSet<(string Collection, string Owner, MethodInfo Method)>();
         foreach (var collectionName in PatchCollectionNames)
         {
             if (ReflectionContractReader.ReadInstanceMember(patchInfo, collectionName) is not IEnumerable patches)
@@ -78,6 +80,17 @@ public static class HarmonyPatchSetInspector
                 var owner = ReflectionContractReader.ReadInstanceMember(patch, "owner") as string;
                 if (!string.Equals(owner, expectedOwner, StringComparison.Ordinal))
                 {
+                    if (owner != null
+                        && ReflectionContractReader.ReadInstanceMember(patch, "PatchMethod") is MethodInfo foreignMethod
+                        && compatibleForeignPatch?.Invoke(collectionName, patch) == true)
+                    {
+                        if (!acceptedForeign.Add((collectionName, owner, foreignMethod)))
+                        {
+                            detail = $"Duplicate compatible Harmony patch in {collectionName}: {Describe(foreignMethod)}.";
+                            return false;
+                        }
+                        continue;
+                    }
                     detail = $"Foreign Harmony patch in {collectionName}: {owner ?? "unknown"}.";
                     return false;
                 }
@@ -117,7 +130,9 @@ public static class HarmonyPatchSetInspector
             }
         }
 
-        detail = "Harmony patch set contains exactly the required UDS callbacks and no foreign patches.";
+        detail = acceptedForeign.Count == 0
+            ? "Harmony patch set contains exactly the required UDS callbacks and no foreign patches."
+            : $"Harmony patch set contains the required UDS callbacks and {acceptedForeign.Count} verified compatible callbacks.";
         return true;
     }
 

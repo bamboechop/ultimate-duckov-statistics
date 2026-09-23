@@ -93,7 +93,8 @@ internal static class CombatHarmonyBridge
                 health.IsDead,
                 damageInfo,
                 scope,
-                scope?.EquipmentAssociation ?? current.CaptureEquipmentAssociation());
+                scope?.EquipmentAssociation ?? current.CaptureEquipmentAssociation(),
+                headTargeted: current.CaptureHeadshotEvidence(health, damageInfo, scope));
         }
         catch
         {
@@ -178,7 +179,8 @@ internal sealed class CombatHealthPatchState
         DamageInfo damageInfo,
         CombatNativeScope? scope,
         EquipmentEventAssociation equipmentAssociation,
-        bool shouldMeasure = true)
+        bool shouldMeasure = true,
+        bool? headTargeted = null)
     {
         HealthBefore = healthBefore;
         WasDead = wasDead;
@@ -186,6 +188,7 @@ internal sealed class CombatHealthPatchState
         Scope = scope;
         EquipmentAssociation = equipmentAssociation ?? new EquipmentEventAssociation();
         ShouldMeasure = shouldMeasure;
+        HeadTargeted = headTargeted ?? scope?.HeadTargeted == true;
     }
 
     public double HealthBefore { get; }
@@ -194,6 +197,7 @@ internal sealed class CombatHealthPatchState
     public CombatNativeScope? Scope { get; }
     public EquipmentEventAssociation EquipmentAssociation { get; }
     public bool ShouldMeasure { get; }
+    public bool HeadTargeted { get; }
 }
 
 internal static class CombatHarmonyCallbacks

@@ -206,7 +206,8 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
                     patchInfo,
                     harmonyId,
                     expectedOwnedPatches,
-                    out detail);
+                    out detail,
+                    (collection, patch) => KnownModCompatibility.AllowsPatch(original, collection, patch));
             }
             catch (Exception exception)
             {

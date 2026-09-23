@@ -20,6 +20,7 @@
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeHotPathTimings.cs" Link="Production/Adapters/NativeHotPathTimings.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeUiResourceDiagnostics.cs" Link="Production/Adapters/NativeUiResourceDiagnostics.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/ReflectiveHarmonyPatcher.cs" Link="Production/Adapters/ReflectiveHarmonyPatcher.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/KnownModCompatibility.cs" Link="Production/Adapters/KnownModCompatibility.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/NativePanelShortcutGuard.cs" Link="Production/UI/NativePanelShortcutGuard.cs" />
     <Compile Include="../Shared/HarmonyBoundaryStubs.cs" Link="HarmonyBoundaryStubs.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/EntityDisplayNames.cs" Link="ProductionUI/EntityDisplayNames.cs" />

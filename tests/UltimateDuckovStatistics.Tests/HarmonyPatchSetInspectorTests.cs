@@ -103,6 +103,46 @@ public sealed class HarmonyPatchSetInspectorTests
         Assert.Contains("Required UDS patch is missing", installedDetail, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ScopedCompatibilityDoesNotExcuseMissingOrDuplicateOwnedCallbacks()
+    {
+        var info = CreateExactPatchSet();
+        var allowed = new FakePatch("known.mod", Callback(nameof(ForeignCallback)));
+        info.Prefixes.Add(allowed);
+        bool Accept(string collection, object patch) => collection == "Prefixes" && ReferenceEquals(patch, allowed);
+        Assert.True(HarmonyPatchSetInspector.TryValidate(info, Owner, ExpectedPatches(), out var detail, Accept), detail);
+
+        info.Postfixes.Clear();
+        Assert.False(HarmonyPatchSetInspector.TryValidate(info, Owner, ExpectedPatches(), out detail, Accept));
+        Assert.Contains("Required UDS patch is missing", detail, StringComparison.Ordinal);
+        info.Postfixes.Add(new FakePatch(Owner, Callback(nameof(HealthPostfix))));
+        info.Prefixes.Add(new FakePatch(Owner, Callback(nameof(HealthPrefix))));
+        Assert.False(HarmonyPatchSetInspector.TryValidate(info, Owner, ExpectedPatches(), out detail, Accept));
+        Assert.Contains("Duplicate UDS", detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void KnownOwnerDoesNotApproveAnotherCallbackOrCollection()
+    {
+        var info = CreateExactPatchSet();
+        var allowed = new FakePatch("known.mod", Callback(nameof(ForeignCallback)));
+        info.Prefixes.Add(allowed);
+        info.Finalizers.Add(new FakePatch("known.mod", Callback(nameof(HealthPrefix))));
+        Assert.False(HarmonyPatchSetInspector.TryValidate(info, Owner, ExpectedPatches(), out var detail,
+            (collection, patch) => collection == "Prefixes" && ReferenceEquals(patch, allowed)));
+        Assert.Contains("Foreign Harmony patch in Finalizers", detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DuplicateCompatibleCallbackIsRejected()
+    {
+        var info = CreateExactPatchSet();
+        info.Prefixes.Add(new FakePatch("known.mod", Callback(nameof(ForeignCallback))));
+        info.Prefixes.Add(new FakePatch("known.mod", Callback(nameof(ForeignCallback))));
+        Assert.False(HarmonyPatchSetInspector.TryValidate(info, Owner, ExpectedPatches(), out var detail, (_, _) => true));
+        Assert.Contains("Duplicate compatible", detail, StringComparison.Ordinal);
+    }
+
     private static FakePatches CreateExactPatchSet() => new()
     {
         Prefixes = { new FakePatch(Owner, Callback(nameof(HealthPrefix))) },

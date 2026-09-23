@@ -47,8 +47,8 @@ public static class CombatNativeContractPolicy
             WeaponIdentity = Availability(completeOwnership, "DamageInfo.fromWeaponItemID or projectile initialization snapshot at event time, with trusted buff reapplication and effect-scope observation.", "Complete weapon identity requires exact Health.Hurt plus trusted buff actor and effect-scope observation."),
             AmmunitionIdentity = Availability(projectileDamage || (support.PublicPlayerDeath && support.ProjectileInit && support.ProjectileUpdate), "ProjectileContext ammunition snapshot retained on damage, completion, and death outcomes.", "Ammunition identity requires Projectile.Init/Update plus proven health or death evidence."),
             DamageOverTime = Availability(effectDamage && support.BuffApplication, "ItemStatsSystem TickTrigger/UpdateTrigger scope proves repeated effect damage; trusted buff application preserves actor and originating-equipment evidence.", "Damage over time requires an effect scope, proven health/death evidence, and trusted buff actor observation."),
-            Headshots = Availability(projectileDamage, "InputManager.AimingEnemyHead sampled for an exact player projectile; DamageInfo.crit alone is never used.", "Headshots require Health.Hurt and Projectile.Init/Update."),
-            HeadshotFinalBlows = Availability(projectileDamage, "A proven player-owned head-targeted projectile that performs the fatal Health.Hurt transition.", "Headshot final blows require Health.Hurt and Projectile.Init/Update."),
+            Headshots = Availability(projectileDamage && support.HeadshotEvidence, "Native launch-time head aim or the verified active First Person Camera target-specific head-hit result; generic critical damage is never headshot evidence.", "Headshots require Health.Hurt, Projectile.Init/Update and trusted native or First Person Camera headshot evidence."),
+            HeadshotFinalBlows = Availability(projectileDamage && support.HeadshotEvidence, "A proven player-owned headshot on the same target's fatal Health.Hurt transition.", "Headshot final blows require Health.Hurt, Projectile.Init/Update and trusted native or First Person Camera headshot evidence."),
             ThrowableKills = Availability(completeOwnership && support.GrenadeExplosion, "Proven player final blows during item-sourced Grenade.Explode damage.", "Throwable kills require trusted grenade explosion and player ownership hooks."),
             KillsByYou = Availability(completeOwnership, "Only a fatal enemy Health.Hurt transition with proven player ownership and trusted buff actor and effect-scope observation counts.", "Kills by you require exact Health.Hurt plus trusted buff actor and effect-scope observation."),
             ObservedWorldDeaths = Availability(
@@ -121,6 +121,7 @@ public static class CombatNativeContractPolicy
 
 public sealed record class CombatHookSupport
 {
+    public bool HeadshotEvidence { get; set; } = true;
     public bool GrenadeLaunch { get; set; }
     public bool GrenadeObjectCreation { get; set; }
     public bool GrenadeExplosion { get; set; }
