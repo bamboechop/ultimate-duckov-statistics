@@ -1,4 +1,4 @@
-# Workshop description for 1.2.0
+# Workshop description for 1.3.0
 
 Paste the contents of the code block below into the Steam Workshop description. It uses [Steam formatting tags](https://steamcommunity.com/comment/ForumTopic/formattinghelp); do not copy the Markdown code fences or these preparation notes. The final link is the GitHub repository, following the author attribution and AI usage disclosure.
 
@@ -25,7 +25,7 @@ The preview is tracked at [mod/preview.png](../mod/preview.png), with the short 
 [olist]
 [*]Subscribe to UDS and the required [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839]HarmonyLib[/url] dependency.
 [*]Enable both in the game's Mods menu and restart if prompted. Keep only one active copy of UDS if you previously installed it manually.
-[*]Outside a raid, press [b]F8[/b] or open Statistics from the main menu or base pause menu. You can change the shortcut in Diagnostics.
+[*]Outside a raid, press [b]F8[/b] or open Statistics from the main menu or base pause menu. F8 at base pauses gameplay while statistics are open. You can change the shortcut in Diagnostics.
 [/olist]
 
 Tracking begins while UDS is enabled; earlier gameplay cannot be reconstructed. Statistics are stored separately for each save.
@@ -40,6 +40,8 @@ Want to help bring UDS to your language? [b]Leave a comment below and tell me wh
 
 [h2]Compatibility and feedback[/h2]
 Tested on [b]Windows with Duckov 2.3.30[/b]. UDS records the statistics exposed by the game and labels incomplete or unavailable measurements. Game updates or other mods can affect tracking; check Diagnostics if something looks wrong.
+
+Version 1.3.0 supports inspected builds of [b]First Person Camera, Become Veteran, and Storage Search Bar[/b]. Other builds or additional patches may affect recording. Enable Harmony and optional mods before UDS, then restart Duckov after changing the enabled mod set. Earlier missing statistics cannot be backfilled.
 
 Found a bug or have a suggestion? Leave a comment or open a GitHub issue with your UDS version, game version, and steps to reproduce it.
 
