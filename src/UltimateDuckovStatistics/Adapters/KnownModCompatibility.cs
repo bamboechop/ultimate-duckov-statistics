@@ -93,6 +93,8 @@ internal static class KnownModCompatibility
                 "FirstPersonCamera.HeadshotPatch.Finalizer") => true,
             ("Grenade.Launch", "Postfixes", "firstpersoncamera.aimpatch", "FirstPersonCamera",
                 "FirstPersonCamera.Patches.Grenade_Launch_Patch.Postfix") => true,
+            ("Duckov.UI.LootView.OnClose", "Prefixes", "pisiunas.SSB", "StorageSearchBar",
+                "StorageSearchBar.Patching.Patches.LootViewPatch+LootViewClosePatch.Prefix") => true,
             _ => false
         };
     }
