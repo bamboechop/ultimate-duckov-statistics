@@ -1,3 +1,19 @@
+# Ultimate Duckov Statistics 1.3.0
+
+Version 1.3.0 adds compatibility with inspected optional mods and native pause when opening UDS with F8 at base. The implementation merged through [PR #31](https://github.com/bamboechop/ultimate-duckov-statistics/pull/31), followed by version preparation in [PR #32](https://github.com/bamboechop/ultimate-duckov-statistics/pull/32).
+
+- **First Person Camera:** headshots use the verified mod's target-specific hit result in first-person mode and retain native tracking when that mode is off. Generic critical hits do not become headshots.
+- **Become Veteran:** immediate and delayed item healing retain the original medicine's attribution and measure actual HP restored. Natural regeneration does not inflate item healing.
+- **Independent shared buff observation:** an unrelated healing incompatibility no longer disables combat buff source tracking.
+- **Storage Search Bar:** its inspected loot-window close patch can coexist with corpse inventory and loot observation.
+- **Native pause:** F8 at base pauses gameplay and the inspected FPC camera. Closing resumes only a pause started by UDS; an existing pause menu stays open.
+
+The [compatibility notes](docs/MOD_COMPATIBILITY.md) identify exact inspected builds, accepted gameplay and remaining native checks. Unknown builds, patch-order changes or changing the enabled mod set during play can still disable affected recording. Enable Harmony and optional mods before UDS and restart Duckov after changing the enabled mod set. Existing incomplete history is not backfilled. A known Item Use notice can describe historical incomplete healing as current unavailability; it does not change the recorded values.
+
+[GitHub v1.3.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.3.0) was published on September 23, 2026 from `259ee1c1485059454429eb2ea32aa7e00a198070`. Debug and Release each passed 2,519 main, 132 ordinary shell and 134 combined-diagnostic shell tests; native builds/probe and package audits passed. Two independent builds of the merged source reproduced all three UDS DLLs, their PDBs and ZIP bytes. The 2,975,070-byte ZIP, checksum sidecar, tag and all 13 extracted files passed [independent publication verification](docs/V1_3_0_PUBLICATION.json).
+
+Build metadata, Diagnostics and the mod manifest report 1.3.0. The profile/export schema remains 1; existing current-format statistics remain compatible. Prior release assets are unchanged. Workshop publication and subscription-install verification remain separate steps in the [release procedure](docs/RELEASE_PROCESS.md).
+
 # Ultimate Duckov Statistics 1.2.0
 
 The retained UI update merged through [PR #28](https://github.com/bamboechop/ultimate-duckov-statistics/pull/28) shows view containers immediately, defers data binding, and caches visited views across close/reopen. Loading messages wait 250 ms and appear inside the existing containers. Profile/canvas invalidation and native shutdown release retained resources. Initial View run highlight flashes and premature scroll outlines are corrected. The user confirmed smooth opening and the visual fixes on September 22, 2026; [qualification notes](docs/RETAINED_UI_RESPONSIVENESS_EXPERIMENT.md) distinguish that acceptance from timing measurements and automated coverage.

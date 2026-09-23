@@ -1,6 +1,6 @@
 # Optional mod compatibility
 
-Current source adds optional integrations for First Person Camera (Workshop `3785095584`), Become Veteran (`3736801011`) and Storage Search Bar (`3592349195`). These changes are not in the published v1.2.0 archive. No external mod DLL is bundled or required. The initial two-run native smoke test passed on 2026-09-23; broader native cases remain listed below.
+[GitHub v1.3.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.3.0), published on September 23, 2026, includes optional integrations for First Person Camera (Workshop `3785095584`), Become Veteran (`3736801011`) and Storage Search Bar (`3592349195`), plus native base pause. The implementation merged through [PR #31](https://github.com/bamboechop/ultimate-duckov-statistics/pull/31). No external mod DLL is bundled or required. The initial two-run native smoke test and pause check passed on 2026-09-23; broader native cases remain listed below.
 
 Enable Harmony and the optional mods before UDS, and restart Duckov after changing the enabled mod set. Runtime patch-set changes still invalidate affected recording; changing mod load order does not reconstruct missing history.
 
@@ -40,7 +40,9 @@ The installed DLLs were statically inspected on 2026-09-23 against Duckov 2.3.30
 
 Automated coverage uses the production adapters with boundary doubles. It covers native/FPC mode selection, per-target fatal headshots, projectile deduplication, aggregate/encounter agreement, delayed healing retention/replacement, HP caps, natural-regeneration exclusion, cancellation, reset, shared-buff independence, and rejected patch identity/order. It cannot prove Harmony injection or Unity rendering and frame time in the running game.
 
-The combined compatibility and pause build passed 2,519 main tests and 132 shell tests in each of Debug and Release, the installed Duckov contract probe, warning-free native Release builds and the 13-file package audit. Deployment verified all 13 installed file hashes. The deployed main UDS DLL SHA-256 is `b4834c9c930e87300c23adde8d25d150cf707e2c160a49c3c0ac05d027906bc1`; automated results and the user's gameplay checks are separate evidence.
+The pre-release compatibility and pause build used for gameplay acceptance passed 2,519 main tests and 132 shell tests in each of Debug and Release, the installed Duckov contract probe, warning-free native Release builds and the 13-file package audit. Deployment verified all 13 installed file hashes. That build still reported version 1.2.0; its main UDS DLL SHA-256 was `b4834c9c930e87300c23adde8d25d150cf707e2c160a49c3c0ac05d027906bc1`. It was not the published v1.2.0 archive or the subsequently versioned v1.3.0 package.
+
+The versioned 1.3.0 release separately passed those main/ordinary shell suites, 134 combined-diagnostic shell tests per configuration, native Debug/Release builds, the installed contract probe and artifact audits. Builds of the final merged source in two independent roots reproduced all three UDS DLLs, PDBs and ZIP. The [publication receipt](V1_3_0_PUBLICATION.json) records the release tag, public downloads and exact 13-file readback. These artifact checks and the user's gameplay acceptance remain distinct evidence; neither completes the broader matrix below.
 
 ### Native smoke test, 2026-09-23
 

@@ -2,6 +2,8 @@
 
 This document records the M17 UI contract audited from the installed Escape From Duckov baseline before native menu, localization, focus, icon, and feedback integration was implemented. It is version-specific evidence, not a promise that a later Duckov build retains the same hierarchy or members.
 
+Later releases extend this historical design: the current shell has ten tabs, [1.2.0 retains visited views across close/reopen](RETAINED_UI_RESPONSIVENESS_EXPERIMENT.md), and [1.3.0 uses native pause for base F8 access](MOD_COMPATIBILITY.md#panel-pause-and-camera-input). Historical construction/close behavior below should not be read as the current lifecycle contract.
+
 ## Audited baseline
 
 - Escape From Duckov `2.3.30`, Steam build `24013657`

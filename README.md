@@ -2,7 +2,7 @@
 
 Ultimate Duckov Statistics (UDS) records proven single-player gameplay events in local per-save profiles. It never writes Duckov save files and has no telemetry or online account.
 
-[GitHub v1.2.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.2.0) was published on September 22, 2026, adding the retained UI improvements merged through [PR #28](https://github.com/bamboechop/ultimate-duckov-statistics/pull/28). It includes the Overview kill-distance highlights, Map & Kills, SQLite persistence and JSON/ZIP backup features released in 1.1.x. The published tag and downloads passed [independent verification](docs/V1_2_0_PUBLICATION.json). See [release notes](RELEASE_NOTES.md) and [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for available packages. The first Steam Workshop listing and subscription-install verification remain pending; the [release procedure](docs/RELEASE_PROCESS.md) covers those steps.
+[GitHub v1.3.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.3.0) was published on September 23, 2026, adding compatibility with inspected optional mods and native gameplay pause when opening UDS with F8 at base. It retains the cached UI, Overview kill-distance highlights, Map & Kills, SQLite persistence and JSON/ZIP backup features. The published tag and downloads passed [independent verification](docs/V1_3_0_PUBLICATION.json). See [release notes](RELEASE_NOTES.md) and [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for available packages. The first Steam Workshop listing and subscription-install verification remain pending; the [release procedure](docs/RELEASE_PROCESS.md) covers those steps.
 
 ## Install and use
 
@@ -10,9 +10,9 @@ English and German are included. UDS follows the game's language, including chan
 
 See [INSTALL.md](INSTALL.md) for installation, activation, data locations, export/reset and troubleshooting. The verified baseline is Duckov 2.3.30 / Steam build 24013657 / Unity 2022.3.62f2 on Windows, with the separately installed [HarmonyLib dependency](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) at 2.4.1.0. Game, Unity and Harmony DLLs are never bundled.
 
-Outside raids, open Statistics from the main menu, base pause menu or configurable F8. The retained native shell contains Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, About and Diagnostics. About introduces UDS and its author, and invites translation volunteers to leave a comment on the Steam Workshop page. It contains no external links or browser actions. Long localization text uses measured layout, clipping and scrolling. Missing required native objects can prevent construction; appearance differences do not reject the shell.
+Outside raids, open Statistics from the main menu, base pause menu or configurable F8. Opening with F8 at base starts a native pause, which also stops camera rotation in the inspected First Person Camera build. Closing resumes only a pause UDS started; an existing pause menu stays open. The retained native shell contains Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, About and Diagnostics. About introduces UDS and its author, and invites translation volunteers to leave a comment on the Steam Workshop page. It contains no external links or browser actions. Long localization text uses measured layout, clipping and scrolling. Missing required native objects can prevent construction; appearance differences do not reject the shell.
 
-In current source, opening displays the selected view's containers before filling in its data. Loading text appears only after 250 ms, and visited views stay cached while closed for reuse on reopening. Profile or native-canvas changes discard that cache. The user confirmed smooth opening and the removal of the initial visual flashes; see the [retained UI behavior and qualification](docs/RETAINED_UI_RESPONSIVENESS_EXPERIMENT.md).
+Since 1.2.0, opening displays the selected view's containers before filling in its data. Loading text appears only after 250 ms, and visited views stay cached while closed for reuse on reopening. Profile or native-canvas changes discard that cache. The user confirmed smooth opening and the removal of the initial visual flashes; see the [retained UI behavior and qualification](docs/RETAINED_UI_RESPONSIVENESS_EXPERIMENT.md).
 
 ## Statistics and evidence
 
@@ -29,7 +29,7 @@ The verified baseline does not prove rejected trigger attempts, ammunition units
 
 The [native contract documents](docs/M17_NATIVE_CONTRACTS.md) and [M18 removal inventory](docs/M18_REMOVAL_INVENTORY.md) explain these boundaries. Unknown, Unavailable, Partial, repaired evidence and supported zero are never interchangeable.
 
-Current source adds optional [First Person Camera, Become Veteran and Storage Search Bar compatibility](docs/MOD_COMPATIBILITY.md), preserving native behavior when their integration paths are inactive. Shared combat buff observation runs independently of healing attribution. The document identifies the inspected builds and remaining gameplay checks; these changes are not in the published v1.2.0 archive.
+Version 1.3.0 includes optional [First Person Camera, Become Veteran and Storage Search Bar compatibility](docs/MOD_COMPATIBILITY.md), preserving native behavior when their integration paths are inactive. Shared combat buff observation runs independently of healing attribution. Compatibility is limited to the inspected builds and callbacks; unknown patches and runtime changes can still disable affected recording. Enable Harmony and optional mods before UDS, then restart Duckov after changing the enabled mod set. The compatibility document separates completed gameplay checks from broader native checks and known limitations.
 
 ## Local data and current format
 
