@@ -28,6 +28,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private readonly NativeBuffApplicationObservationBoundary buffApplicationObservationBoundary;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
+    private readonly Func<MethodInfo?, NativeFirstPersonHeadshotCompatibility> firstPersonCompatibilityFactory;
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
     private readonly NativeCombatEquipmentAssociationResolver equipmentAssociationResolver = new();
     private readonly NativeGrenadeHazardOrigins grenadeHazards = new();
@@ -36,6 +37,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private PatchRegistration[] patchRegistrations = Array.Empty<PatchRegistration>();
     private CombatHookSupport hookSupport = new();
     private CombatMetricCapabilities metricCapabilities = new();
+    private NativeFirstPersonHeadshotCompatibility firstPersonHeadshots = new();
     private CharacterMainControl? subscribedMainCharacter;
     private bool cleanupPending;
     private DateTime nextCleanupAttemptUtc;
@@ -59,7 +61,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         Action<string> diagnosticHandler,
         NativeBuffApplicationObservationBoundary buffApplicationObservationBoundary,
         Func<EquipmentEventAssociation>? equipmentAssociationProvider = null,
-        Func<string?>? segmentIdProvider = null)
+        Func<string?>? segmentIdProvider = null,
+        Func<MethodInfo?, NativeFirstPersonHeadshotCompatibility>? firstPersonCompatibilityFactory = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.runIdProvider = runIdProvider ?? throw new ArgumentNullException(nameof(runIdProvider));
@@ -71,6 +74,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             ?? throw new ArgumentNullException(nameof(buffApplicationObservationBoundary));
         this.equipmentAssociationProvider = equipmentAssociationProvider ?? (() => new EquipmentEventAssociation());
         this.segmentIdProvider = segmentIdProvider ?? (() => null);
+        this.firstPersonCompatibilityFactory = firstPersonCompatibilityFactory ?? NativeFirstPersonHeadshotCompatibility.Resolve;
         SetUnavailable("Combat attribution has not been initialized.");
     }
 
@@ -89,6 +93,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         | (hookSupport.EffectTrigger ? 0 : EncounterCombatHookLoss.Effect)
         | (hookSupport.BuffApplication && ReadBuffApplicationObservationTrust() ? 0 : EncounterCombatHookLoss.BuffOwnership)
         | (hookSupport.EnvironmentalDamage ? 0 : EncounterCombatHookLoss.Environmental)
+        | (hookSupport.HeadshotEvidence ? 0 : EncounterCombatHookLoss.HeadshotEvidence)
         | (CanObserveGrenadeHazards ? 0 : EncounterCombatHookLoss.GrenadeOwnership);
 
     public EquipmentEventAssociation CaptureEquipmentAssociation() => equipmentAssociationProvider();
@@ -172,6 +177,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             }
             patchRegistrations = patchRegistrations.Where(x => support.IsEnabled(x.Hook)).ToArray();
 
+            firstPersonHeadshots = firstPersonCompatibilityFactory(methods.HealthHurt);
+            support.HeadshotEvidence = firstPersonHeadshots.IsSupported;
+            if (!support.HeadshotEvidence) diagnosticHandler(firstPersonHeadshots.Failure!);
             hookSupport = support;
             metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
             initialized = true;
@@ -180,7 +188,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             if (!hookSupport.BuffApplication)
             {
                 diagnosticHandler(
-                    "Combat buff actor observation is unavailable because the healing-owned CharacterBuffManager.AddBuff callback is not trusted; dependent combat capabilities are disabled.");
+                    "Combat buff actor observation is unavailable because the shared CharacterBuffManager.AddBuff callback is not trusted; dependent combat capabilities are disabled.");
             }
             patchInspectionScheduler.Reset(DateTime.UtcNow, patchRegistrations.Length);
             SynchronizeMainCharacter();
@@ -570,6 +578,20 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         catch { }
     }
 
+    public bool CaptureHeadshotEvidence(Health health, DamageInfo damageInfo, CombatNativeScope? scope)
+    {
+        if (!hookSupport.HeadshotEvidence || scope?.IsRanged != true) return false;
+        var result = firstPersonHeadshots.Capture(health, damageInfo, scope.HeadTargeted);
+        if (!firstPersonHeadshots.IsSupported)
+        {
+            hookSupport.HeadshotEvidence = false;
+            metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
+            PublishCapabilities();
+            diagnosticHandler(firstPersonHeadshots.Failure!);
+        }
+        return result;
+    }
+
     public void RecordHealthTransition(Health health, CombatHealthPatchState state, double actualDamage, bool fatal)
     {
         if (!CanObserveHealth || health == null || (actualDamage <= 0 && !fatal)) return;
@@ -583,7 +605,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         if (!CombatObservationPolicy.ShouldRecordHealthTransition(targetIsMain, enemyTarget, ownership)) return;
         var playerDamage = ownership == CombatOwnership.Player && enemyTarget;
         var projectileTransition = CombatObservationPolicy.ClassifyProjectileTransition(
-            scope?.HeadTargeted == true,
+            hookSupport.HeadshotEvidence && state.HeadTargeted,
             state.DamageInfo.crit > 0,
             ownership == CombatOwnership.Player,
             enemyTarget,

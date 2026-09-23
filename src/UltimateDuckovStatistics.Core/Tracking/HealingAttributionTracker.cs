@@ -60,6 +60,7 @@ public sealed class HealingAttributionTracker
     private readonly Dictionary<int, SourceState> sourcesByRuntimeItem = new();
     private readonly Dictionary<string, SourceState> sourcesByCorrelation = new(StringComparer.Ordinal);
     private readonly Dictionary<int, string> buffSources = new();
+    private readonly Dictionary<object, string> deferredSources = new(RuntimeSourceComparer.Instance);
     private readonly HashSet<string> recentApplicationIds = new(StringComparer.Ordinal);
     private readonly Queue<string> recentApplicationOrder = new();
 
@@ -71,6 +72,33 @@ public sealed class HealingAttributionTracker
     public int PendingUseCount => sourcesByRuntimeItem.Values.Count(source => !source.Proven);
 
     public int BuffSourceCount => buffSources.Count;
+
+    public int DeferredSourceCount => deferredSources.Count;
+
+    // External healing queues do not carry a native Buff identity. Retain proof
+    // against their actual entry object, never against a target or last-used item.
+    public bool BindDeferredSource(object runtimeSource, string? correlationId)
+    {
+        if (runtimeSource == null) throw new ArgumentNullException(nameof(runtimeSource));
+        if (string.IsNullOrWhiteSpace(correlationId) || !sourcesByCorrelation.ContainsKey(correlationId))
+        {
+            RemoveDeferredSource(runtimeSource);
+            return false;
+        }
+
+        deferredSources[runtimeSource] = correlationId;
+        TrimUnusedProvenSources();
+        return true;
+    }
+
+    public string? TryGetDeferredCorrelation(object runtimeSource) =>
+        deferredSources.TryGetValue(runtimeSource, out var correlationId) ? correlationId : null;
+
+    public void RemoveDeferredSource(object runtimeSource)
+    {
+        deferredSources.Remove(runtimeSource);
+        TrimUnusedProvenSources();
+    }
 
     public void BeginUse(HealingUseContext context)
     {
@@ -223,6 +251,7 @@ public sealed class HealingAttributionTracker
         sourcesByRuntimeItem.Clear();
         sourcesByCorrelation.Clear();
         buffSources.Clear();
+        deferredSources.Clear();
         recentApplicationIds.Clear();
         recentApplicationOrder.Clear();
     }
@@ -318,11 +347,15 @@ public sealed class HealingAttributionTracker
         {
             buffSources.Remove(buffId);
         }
+
+        foreach (var entry in deferredSources.Where(entry => string.Equals(entry.Value, source.Context.CorrelationId, StringComparison.Ordinal)).Select(entry => entry.Key).ToArray())
+            deferredSources.Remove(entry);
     }
 
     private void TrimUnusedProvenSources()
     {
         var referenced = buffSources.Values.ToHashSet(StringComparer.Ordinal);
+        referenced.UnionWith(deferredSources.Values);
         foreach (var source in sourcesByCorrelation.Values
                      .Where(source => source.Proven
                                       && !sourcesByRuntimeItem.ContainsKey(source.Context.RuntimeItemId)
@@ -403,5 +436,12 @@ public sealed class HealingAttributionTracker
         public string SourceItemUseEventId { get; set; } = string.Empty;
 
         public List<HealingObservation> PendingObservations { get; } = new();
+    }
+
+    private sealed class RuntimeSourceComparer : IEqualityComparer<object>
+    {
+        internal static readonly RuntimeSourceComparer Instance = new();
+        public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
+        public int GetHashCode(object obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
     }
 }

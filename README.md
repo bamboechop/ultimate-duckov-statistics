@@ -29,6 +29,8 @@ The verified baseline does not prove rejected trigger attempts, ammunition units
 
 The [native contract documents](docs/M17_NATIVE_CONTRACTS.md) and [M18 removal inventory](docs/M18_REMOVAL_INVENTORY.md) explain these boundaries. Unknown, Unavailable, Partial, repaired evidence and supported zero are never interchangeable.
 
+Current source adds optional [First Person Camera, Become Veteran and Storage Search Bar compatibility](docs/MOD_COMPATIBILITY.md), preserving native behavior when their integration paths are inactive. Shared combat buff observation runs independently of healing attribution. The document identifies the inspected builds and remaining gameplay checks; these changes are not in the published v1.2.0 archive.
+
 ## Local data and current format
 
 The first public format baseline is `uds-profile-v1`, **schema 1**, with data below `%USERPROFILE%/AppData/LocalLow/TeamSoda/Duckov/UltimateDuckovStatistics/v1/`. This deliberately starts fresh from the schema-18 development/RC profiles; they are incompatible and are not converted. If left on disk, the mod archives them intact and creates fresh statistics. Older `0.x` data is not imported or deleted. Clean installation and valid schema-1 reinstallation are supported; no development-data migration code ships. Incompatible/future profiles remain protected. Schema revisions follow stored-format changes independently of release versions.

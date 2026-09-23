@@ -18,6 +18,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private bool initialized;
     private NativeProfileCoordinator? profileCoordinator;
     private NativeHealingAttributionAdapter? healingAttributionAdapter;
+    private NativeBuffApplicationAdapter? buffApplicationAdapter;
     private NativeItemUseAdapter? itemUseAdapter;
     private NativeEconomyAdapter? economyAdapter;
     private NativeEconomyHoldingsAdapter? economyHoldingsAdapter;
@@ -196,6 +197,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             newEconomyAdapter.Initialize();
             profileCoordinator.SetEconomyBoundaryBarrier(newEconomyAdapter.FlushPendingForBoundary);
             var buffApplicationObservationBoundary = new NativeBuffApplicationObservationBoundary();
+            buffApplicationAdapter = new NativeBuffApplicationAdapter(buffApplicationObservationBoundary,
+                message => Debug.Log($"{LogPrefix} {message}"));
+            buffApplicationAdapter.Initialize();
             healingAttributionAdapter = new NativeHealingAttributionAdapter(
                 healing =>
                 {
@@ -423,7 +427,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 #if UDS_PERFORMANCE_DIAGNOSTICS
         using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Healing))
 #endif
-        healingAttributionAdapter?.Tick();
+        {
+            buffApplicationAdapter?.Tick();
+            healingAttributionAdapter?.Tick();
+        }
 #if UDS_PERFORMANCE_DIAGNOSTICS
         using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Combat))
 #endif
@@ -569,6 +576,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
         healingAttributionAdapter?.Dispose();
         healingAttributionAdapter = null;
+        buffApplicationAdapter?.Dispose();
+        buffApplicationAdapter = null;
         statisticsPanel?.Dispose();
         statisticsPanel = null;
 

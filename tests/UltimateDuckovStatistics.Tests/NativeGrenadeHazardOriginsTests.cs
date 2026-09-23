@@ -3,6 +3,7 @@ using UltimateDuckovStatistics.Core.Domain;
 
 namespace UltimateDuckovStatistics.Tests;
 
+[Collection(NativeEconomyAdapterTestGroup.CollectionName)]
 public sealed class NativeGrenadeHazardOriginsTests
 {
     [Theory]
@@ -10,11 +11,13 @@ public sealed class NativeGrenadeHazardOriginsTests
     [InlineData(true)]
     public void RealBuffPrefixDistinguishesNewInstanceFromSameIdReapplication(bool existing)
     {
+        using var observer = new NativeBuffApplicationAdapter(new NativeBuffApplicationObservationBoundary(), _ => { });
+        Assert.True(observer.Initialize());
         var manager = new CharacterBuffManager();
         var prefab = new Duckov.Buffs.Buff { ID = 42 };
         if (existing) manager.Buffs.Add(new Duckov.Buffs.Buff { ID = 42 });
         object?[] arguments = [manager, prefab, false];
-        HealingHarmonyCallbacks.BuffPrefixMethod.Invoke(null, arguments);
+        NativeBuffApplicationAdapter.BuffPrefixMethod.Invoke(null, arguments);
         Assert.Equal(!existing, arguments[2]);
     }
 

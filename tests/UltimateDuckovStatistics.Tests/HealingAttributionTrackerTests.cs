@@ -238,6 +238,43 @@ public sealed class HealingAttributionTrackerTests
         return new HealingAttributionTracker(() => $"healing-event-{++sequence}");
     }
 
+    [Fact]
+    public void DeferredQueueIdentityKeepsCompletedSourceAliveUntilItsLastEntryIsRemoved()
+    {
+        var tracker = CreateTracker();
+        var entry = new object();
+        tracker.BeginUse(CreateContext("use-a", 10, "item:a"));
+        Assert.True(tracker.BindDeferredSource(entry, "use-a"));
+        tracker.CompleteUse(10, CreateSuccessfulUse("event-a", "item:a"));
+        Assert.Equal("item:a", Assert.Single(tracker.Observe(tracker.TryGetDeferredCorrelation(entry),
+            CreateObservation("tick-1", 2))).ItemId);
+        var replacement = new object();
+        Assert.True(tracker.BindDeferredSource(replacement, "use-a"));
+        tracker.RemoveDeferredSource(entry);
+        Assert.Single(tracker.Observe(tracker.TryGetDeferredCorrelation(replacement), CreateObservation("tick-2", 3)));
+        tracker.RemoveDeferredSource(replacement);
+        Assert.Equal(0, tracker.DeferredSourceCount);
+        Assert.Empty(tracker.Observe("use-a", CreateObservation("stale", 4)));
+    }
+
+    [Fact]
+    public void DeferredQueuesLoseProvenanceOnCancelledUseAndSessionReset()
+    {
+        var tracker = CreateTracker();
+        var entry = new object();
+        tracker.BeginUse(CreateContext("cancelled", 10, "item:a"));
+        tracker.BindDeferredSource(entry, "cancelled");
+        tracker.CompleteUse(10, null);
+        Assert.Null(tracker.TryGetDeferredCorrelation(entry));
+        tracker.BeginUse(CreateContext("completed", 20, "item:b"));
+        tracker.BindDeferredSource(entry, "completed");
+        tracker.CompleteUse(20, CreateSuccessfulUse("event-b", "item:b"));
+        tracker.Clear();
+        Assert.Null(tracker.TryGetDeferredCorrelation(entry));
+        Assert.Equal(0, tracker.DeferredSourceCount);
+        Assert.Empty(tracker.Observe("completed", CreateObservation("after-reset", 3)));
+    }
+
     private static HealingUseContext CreateContext(string correlationId, int runtimeItemId, string itemId) => new()
     {
         CorrelationId = correlationId,

@@ -86,7 +86,8 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
     internal static void ObserveHealthBegin(Health health, DamageInfo info) => HurtPrefix(health, info, out _);
 
     // The aggregate adapter classifies the accepted transition from the projectile's
-    // launch-time head-target evidence and deduplicates it. Native crit is unrelated.
+    // native launch evidence or verified FPC target-local evidence and deduplicates
+    // it. A generic native critical hit is not independent headshot evidence.
     // Its callback runs before ObserveHealthComplete, while this Hurt frame is owned.
     internal static void ObserveHeadshot(Health health)
     {

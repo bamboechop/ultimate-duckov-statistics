@@ -270,7 +270,7 @@ public sealed partial class ShellAccessTests : IDisposable
         ((RectTransform)canvas.transform).sizeDelta = new Vector2(1280, 720);
         canvas.gameObject.AddComponent<GraphicRaycaster>();
         canvas.gameObject.AddComponent<CanvasScaler>();
-        LevelManager.Instance = new LevelManager();
+        LevelManager.Instance = new LevelManager { IsBaseLevel = false };
         NativeRaidContext.InRaid = false;
         Input.Down.Clear();
     }
@@ -630,6 +630,7 @@ public sealed partial class ShellAccessTests : IDisposable
 
     private static void PreparePauseMenu(Canvas host)
     {
+        LevelManager.Instance!.IsBaseLevel = true;
         var menu = new GameObject("Menu"); menu.transform.SetParent(host.transform);
         PauseMenu.Instance = menu.AddComponent<PauseMenu>();
         var anchor = new GameObject("Options"); anchor.transform.SetParent(menu.transform);

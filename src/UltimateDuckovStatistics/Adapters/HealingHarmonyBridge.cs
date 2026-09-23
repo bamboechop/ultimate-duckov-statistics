@@ -9,7 +9,7 @@ internal enum HealingPatchPoint
 {
     Health,
     Effect,
-    Buff
+    BecomeVeteran
 }
 
 internal static class HealingHarmonyBridge
@@ -43,6 +43,8 @@ internal static class HealingHarmonyBridge
         var correlationId = adapter?.TryGetUseCorrelation(runtimeItemId);
         return Push(correlationId);
     }
+
+    internal static string PushCompatibilityApplication(string? correlationId) => Push(correlationId, allowUnattributed: true)!;
 
     public static string? PushEffect(EffectAction effectAction)
     {
@@ -145,18 +147,17 @@ internal static class HealingHarmonyBridge
         bool newlyCreated = false)
     {
         var currentAdapter = adapter;
-        if (currentAdapter == null || !currentAdapter.IsPatchPointTrusted(HealingPatchPoint.Buff))
+        if (currentAdapter == null || !currentAdapter.CanObserveBuffProvenance)
         {
             return;
         }
 
-        CombatHarmonyBridge.CaptureBuffApplication(manager, buffPrefab, fromWho, overrideWeaponID, newlyCreated);
         currentAdapter.ReconcileAppliedBuff(manager, buffPrefab, CurrentCorrelationId);
     }
 
-    private static string? Push(string? correlationId)
+    private static string? Push(string? correlationId, bool allowUnattributed = false)
     {
-        if (string.IsNullOrWhiteSpace(correlationId))
+        if (!allowUnattributed && string.IsNullOrWhiteSpace(correlationId))
         {
             return null;
         }
@@ -169,7 +170,7 @@ internal static class HealingHarmonyBridge
 
     private sealed class AttributionScope
     {
-        public AttributionScope(string scopeId, string correlationId)
+        public AttributionScope(string scopeId, string? correlationId)
         {
             ScopeId = scopeId;
             CorrelationId = correlationId;
@@ -177,7 +178,7 @@ internal static class HealingHarmonyBridge
 
         public string ScopeId { get; }
 
-        public string CorrelationId { get; }
+        public string? CorrelationId { get; }
     }
 }
 
@@ -244,27 +245,6 @@ internal static class HealingHarmonyCallbacks
         return __exception;
     }
 
-    private static void BuffPrefix(CharacterBuffManager __instance, Buff buffPrefab, out bool __state)
-    {
-        __state = false;
-        try
-        {
-            if (__instance != null && buffPrefab != null)
-                __state = !__instance.Buffs.Any(value => value != null && value.ID == buffPrefab.ID);
-        }
-        catch { /* An unreadable pre-call buff list cannot prove a new instance. */ }
-    }
-
-    private static void BuffPostfix(
-        CharacterBuffManager __instance,
-        Buff buffPrefab,
-        CharacterMainControl? fromWho,
-        int overrideWeaponID,
-        bool __state)
-    {
-        HealingHarmonyBridge.BindBuff(__instance, buffPrefab, fromWho, overrideWeaponID, __state);
-    }
-
     public static MethodInfo HealthPrefixMethod => Get(nameof(HealthPrefix));
 
     public static MethodInfo HealthPostfixMethod => Get(nameof(HealthPostfix));
@@ -272,9 +252,6 @@ internal static class HealingHarmonyCallbacks
     public static MethodInfo EffectPrefixMethod => Get(nameof(EffectPrefix));
 
     public static MethodInfo EffectFinalizerMethod => Get(nameof(EffectFinalizer));
-
-    public static MethodInfo BuffPostfixMethod => Get(nameof(BuffPostfix));
-    public static MethodInfo BuffPrefixMethod => Get(nameof(BuffPrefix));
 
     private static MethodInfo Get(string name) => typeof(HealingHarmonyCallbacks).GetMethod(
         name,
