@@ -83,6 +83,8 @@ internal static class KnownModCompatibility
         var assembly = callback.Module.Assembly.GetName().Name;
         return (target, collection, owner, assembly, patch) switch
         {
+            ("Health.AddHealth", "Prefixes", "com.becomeveteran.patches", "BecomeVeteran",
+                "BecomeVeteran.AddHealthPatch.Prefix") => true,
             ("Health.Hurt", "Prefixes", "firstpersoncamera.aimpatch", "FirstPersonCamera",
                 "FirstPersonCamera.HeadshotPatch.Prefix") => true,
             ("Health.Hurt", "Postfixes", "firstpersoncamera.aimpatch", "FirstPersonCamera",

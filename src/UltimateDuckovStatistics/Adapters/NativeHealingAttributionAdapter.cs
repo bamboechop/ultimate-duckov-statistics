@@ -13,7 +13,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObserver, IDisposable
 {
     internal const string AdapterId = "native-healing-attribution";
-    internal const string AdapterVersion = "native-healing-attribution/2.3.30+harmony-2.4.1+patch-stamp-v1";
+    internal const string AdapterVersion = "native-healing-attribution/2.3.30+harmony-2.4.1+optional-veteran-v1";
     private readonly Action<HealingApplied> healingHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly Func<EventAttributionContext?> eventContextProvider;
@@ -22,6 +22,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     private readonly Dictionary<int, string?> itemApplicationScopes = new();
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
     private PatchRegistration[] patchRegistrations = Array.Empty<PatchRegistration>();
+    private NativeBecomeVeteranHealingCompatibility? becomeVeteran;
     private CharacterBuffManager? subscribedBuffManager;
     private bool lifecycleSubscribed;
     private bool retryWhenHarmonyLoads;
@@ -110,7 +111,13 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         var patcher = createdPatcher;
         try
         {
-            foreach (var method in new[] { healthMethod, effectMethod })
+            if (!NativeBecomeVeteranHealingCompatibility.TryDiscover(tracker, IsBecomeVeteranTrusted,
+                    detail => SchedulePatchSetConflict(null, detail), out becomeVeteran, out var veteranDetail))
+                throw new InvalidOperationException(veteranDetail);
+
+            var methods = new[] { healthMethod, effectMethod }.Concat(
+                becomeVeteran?.Patches.Select(patch => patch.Original) ?? Enumerable.Empty<MethodInfo>());
+            foreach (var method in methods)
             {
                 if (!patcher.IsPatchSetTrusted(
                         method,
@@ -127,8 +134,11 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 }
             }
 
-            var registrations = CreatePatchRegistrations(healthMethod, effectMethod);
+            var registrations = CreatePatchRegistrations(healthMethod, effectMethod).Concat(
+                becomeVeteran?.Patches.Select(patch => new PatchRegistration(HealingPatchPoint.BecomeVeteran,
+                    patch.Original, patch.Expectations)) ?? Enumerable.Empty<PatchRegistration>()).ToArray();
             HealingHarmonyBridge.Attach(this);
+            becomeVeteran?.Attach();
             patcher.Patch(
                 healthMethod,
                 HealingHarmonyCallbacks.HealthPrefixMethod,
@@ -137,6 +147,9 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 effectMethod,
                 HealingHarmonyCallbacks.EffectPrefixMethod,
                 finalizer: HealingHarmonyCallbacks.EffectFinalizerMethod);
+            if (becomeVeteran != null)
+                foreach (var patch in becomeVeteran.Patches)
+                    patcher.Patch(patch.Original, patch.Prefix, patch.Postfix, patch.Finalizer);
             patchRegistrations = registrations;
             foreach (var registration in patchRegistrations)
             {
@@ -165,7 +178,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 AdapterId = AdapterId,
                 State = HealingCapabilityPolicy.GetState(HealingCapabilityCondition.Available),
                 Version = AdapterVersion,
-                Detail = $"Exact main-duck Health.AddHealth attribution via HarmonyLib {patcher.Version}; no Harmony assembly is bundled."
+                Detail = $"Exact main-duck Health.AddHealth attribution via HarmonyLib {patcher.Version}; no Harmony assembly is bundled. {veteranDetail}"
             });
             diagnosticHandler($"Healing attribution patches active with HarmonyLib {patcher.Version}.");
         }
@@ -325,6 +338,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         }
 
         tracker.Clear();
+        becomeVeteran?.Reset();
         HealingHarmonyBridge.ClearScopes();
     }
 
@@ -332,6 +346,19 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     public bool CanObserveBuffProvenance => Capability.State == AdapterCapabilityState.Supported
                                             && buffApplicationObservationBoundary.IsTrusted;
+
+    private bool IsBecomeVeteranTrusted()
+    {
+        if (Capability.State != AdapterCapabilityState.Supported || becomeVeteran == null || !HasTrustedBuffDependency()) return false;
+        foreach (var registration in patchRegistrations)
+        {
+            if (registration.Point != HealingPatchPoint.BecomeVeteran) continue;
+            if (IsRegistrationStampCurrent(registration, out var detail)) continue;
+            SchedulePatchSetConflict(registration.Original, detail);
+            return false;
+        }
+        return true;
+    }
 
     public bool IsPatchPointTrusted(HealingPatchPoint patchPoint)
     {
@@ -590,6 +617,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     private void DetachRuntimeHooks()
     {
+        becomeVeteran?.Detach();
         if (lifecycleSubscribed)
         {
             RaidUtilities.OnNewRaid -= OnRaidTransition;

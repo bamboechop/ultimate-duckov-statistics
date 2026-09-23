@@ -8,7 +8,8 @@ namespace UltimateDuckovStatistics.Adapters;
 internal enum HealingPatchPoint
 {
     Health,
-    Effect
+    Effect,
+    BecomeVeteran
 }
 
 internal static class HealingHarmonyBridge
@@ -42,6 +43,8 @@ internal static class HealingHarmonyBridge
         var correlationId = adapter?.TryGetUseCorrelation(runtimeItemId);
         return Push(correlationId);
     }
+
+    internal static string PushCompatibilityApplication(string? correlationId) => Push(correlationId, allowUnattributed: true)!;
 
     public static string? PushEffect(EffectAction effectAction)
     {
@@ -152,9 +155,9 @@ internal static class HealingHarmonyBridge
         currentAdapter.ReconcileAppliedBuff(manager, buffPrefab, CurrentCorrelationId);
     }
 
-    private static string? Push(string? correlationId)
+    private static string? Push(string? correlationId, bool allowUnattributed = false)
     {
-        if (string.IsNullOrWhiteSpace(correlationId))
+        if (!allowUnattributed && string.IsNullOrWhiteSpace(correlationId))
         {
             return null;
         }
@@ -167,7 +170,7 @@ internal static class HealingHarmonyBridge
 
     private sealed class AttributionScope
     {
-        public AttributionScope(string scopeId, string correlationId)
+        public AttributionScope(string scopeId, string? correlationId)
         {
             ScopeId = scopeId;
             CorrelationId = correlationId;
@@ -175,7 +178,7 @@ internal static class HealingHarmonyBridge
 
         public string ScopeId { get; }
 
-        public string CorrelationId { get; }
+        public string? CorrelationId { get; }
     }
 }
 
