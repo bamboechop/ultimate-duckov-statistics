@@ -110,6 +110,8 @@ try
         core.RequireField(string.Empty, "MainMenu", "OnMainMenuDestroy", mustBePublic: true, mustBeStatic: true, fieldTypeFragment: "System.Action");
         core.RequireProperty(string.Empty, "PauseMenu", "Instance", "PauseMenu", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "PauseMenu", "Shown", "System.Boolean", mustBePublic: true);
+        core.RequireMethod(string.Empty, "PauseMenu", "Show", 0, mustBePublic: true, mustBeStatic: true);
+        core.RequireMethod(string.Empty, "PauseMenu", "Hide", 0, mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "GameManager", "EventSystem", "UnityEngine.EventSystems.EventSystem", mustBePublic: true, mustBeStatic: true);
         core.RequireMethod("Duckov.UI", "NotificationText", "Push", 1, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String"]);
         core.RequireInterfaces(

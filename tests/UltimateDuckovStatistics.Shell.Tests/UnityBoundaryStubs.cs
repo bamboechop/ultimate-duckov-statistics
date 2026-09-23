@@ -236,7 +236,7 @@ namespace TMPro
 }
 namespace Duckov.UI { public sealed class TooltipsProvider : UnityEngine.MonoBehaviour { public string text = ""; } }
 namespace Duckov.UI.Animations { public class ButtonAnimation : UnityEngine.MonoBehaviour { } }
-public static class GameManager { public static UnityEngine.EventSystems.EventSystem? EventSystem = new(); }
+public static class GameManager { public static UnityEngine.EventSystems.EventSystem? EventSystem = new(); public static bool Paused => PauseMenu.Instance?.Shown == true; }
 public class InputManager : UnityEngine.Object { public static readonly HashSet<UnityEngine.GameObject> Blocks = new(); public static void DisableInput(UnityEngine.GameObject owner) => Blocks.Add(owner); public static void ActiveInput(UnityEngine.GameObject owner) => Blocks.Remove(owner); }
 public sealed class LevelManager : UnityEngine.Object
 {
@@ -267,6 +267,7 @@ public sealed class MainMenu : UnityEngine.MonoBehaviour
 public sealed class PauseMenu : UnityEngine.MonoBehaviour
 {
     public static PauseMenu? Instance;
+    public bool Shown => gameObject.activeInHierarchy;
     public static event Action? onPauseMenuOn, onPauseMenuOff;
     public static int Listeners => (onPauseMenuOn?.GetInvocationList().Length ?? 0) + (onPauseMenuOff?.GetInvocationList().Length ?? 0);
     public static void Show() { Instance!.gameObject.SetActive(true); onPauseMenuOn?.Invoke(); }

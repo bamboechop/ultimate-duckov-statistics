@@ -32,6 +32,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private GameObject? priorSelectedGameObject;
     private GameObject? inputBlockSource;
     private InputManager? blockedInputManager;
+    private PauseMenu? ownedPauseMenu;
+    private PauseMenu? panelPauseMenu;
     private string presentedGeneration = string.Empty;
     private bool projectionDirty;
     private int openAfterFrame;
@@ -85,6 +87,12 @@ internal sealed class NativeStatisticsPanel : IDisposable
         {
             Close();
             shell.Dispose();
+            return;
+        }
+        if (lifecycle.IsOpen && openSurface == PanelAccessSurface.BasePauseMenu
+            && (panelPauseMenu == null || PauseMenu.Instance != panelPauseMenu || !panelPauseMenu.Shown))
+        {
+            Close();
             return;
         }
         if (lifecycle.IsOpen && NativeRaidContext.IsRaidMap())
@@ -211,6 +219,27 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
     private bool RequestOpen(PanelAccessSurface surface)
     {
+        try { return TryOpen(surface); }
+        catch (Exception exception)
+        {
+            Close();
+            ReportShellFailure(surface, $"panel activation failed: {exception.GetType().Name}: {exception.Message}");
+            return false;
+        }
+        finally
+        {
+            // Native pause activation can succeed before canvas/shell activation
+            // fails. Roll back our input and pause ownership on every failed open.
+            if (!lifecycle.IsOpen)
+            {
+                try { RestoreFocusAndCursor(); }
+                finally { ReleaseOwnedPause(); }
+            }
+        }
+    }
+
+    private bool TryOpen(PanelAccessSurface surface)
+    {
 #if UDS_PERFORMANCE_DIAGNOSTICS
         using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelOpen);
 #endif
@@ -247,6 +276,26 @@ internal sealed class NativeStatisticsPanel : IDisposable
             // pause menu. Reopen on the activated menu's canvas instead of hiding there.
             Close();
         }
+
+        if (surface == PanelAccessSurface.Hotkey && LevelManager.Instance?.IsBaseLevel == true
+            && !Resources.FindObjectsOfTypeAll<MainMenu>().Any(menu => menu != null
+                && menu.gameObject.activeInHierarchy && menu.gameObject.scene.IsValid()))
+        {
+            var pause = PauseMenu.Instance;
+            if (pause == null) throw new InvalidOperationException("Duckov's base pause menu is unavailable.");
+            CaptureFocusAndCursor();
+            if (!pause.Shown)
+            {
+                // Keep the exact native owner before Show: a subscriber can fail
+                // after Duckov has already opened the menu.
+                ownedPauseMenu = pause;
+                PauseMenu.Show();
+            }
+            if (PauseMenu.Instance != pause || !pause.Shown)
+                throw new InvalidOperationException("Duckov's base pause menu did not remain open.");
+            surface = PanelAccessSurface.BasePauseMenu;
+        }
+        if (surface == PanelAccessSurface.BasePauseMenu) panelPauseMenu = PauseMenu.Instance;
 
         if (!nativeUi.TryResolvePanelCanvas(surface, out var canvas) || canvas == null)
         {
@@ -502,15 +551,37 @@ internal sealed class NativeStatisticsPanel : IDisposable
         EncounterPreviewIsOpen = false;
 #endif
         if (!lifecycle.Close()) return;
-        operations.DismissExportResult();
+        try
+        {
+            operations.DismissExportResult();
 #if UDS_PERFORMANCE_DIAGNOSTICS
-        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelClose);
+            using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelClose);
 #endif
-        operations.CancelConfirmation(); capturingHotkey = false;
-        shell.Hide();
-        openSurface = null;
-        diagnostics = null; diagnosticsRevision = -1;
-        RestoreFocusAndCursor();
+            operations.CancelConfirmation(); capturingHotkey = false;
+            shell.Hide();
+        }
+        finally
+        {
+            openSurface = null;
+            diagnostics = null; diagnosticsRevision = -1;
+            try { RestoreFocusAndCursor(); }
+            finally { ReleaseOwnedPause(); }
+        }
+    }
+
+    private void ReleaseOwnedPause()
+    {
+        var pause = ownedPauseMenu;
+        ownedPauseMenu = null;
+        panelPauseMenu = null;
+        // Clear ownership before Hide raises onPauseMenuOff. Never close a
+        // replacement menu or a pause that was already present when UDS opened.
+        if (pause == null || PauseMenu.Instance != pause || !pause.Shown) return;
+        try { PauseMenu.Hide(); }
+        catch (Exception exception)
+        {
+            coordinator.ReportUiDiagnostic($"Native pause cleanup failed: {exception.GetType().Name}: {exception.Message}", "Warning");
+        }
     }
 
     private void CaptureFocusAndCursor()
