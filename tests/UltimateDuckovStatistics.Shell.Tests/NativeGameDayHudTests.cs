@@ -95,30 +95,40 @@ public sealed class NativeGameDayHudTests : IDisposable
     public void SaveChangeHidesOutgoingClockUntilReplacementHasLoaded(bool deletion)
     {
         Display(); var oldClock = Clock(29); Tick();
+        SceneLoader.StartLoading(); // A save change must still clear the frozen outgoing label.
+        Assert.Equal("Day 30", Label().text);
         if (deletion) SavesSystem.DeleteSave(); else SavesSystem.SetFile();
         Assert.Empty(Labels());
         oldClock.Days++; GameClock.Step(); Tick();
         Assert.Empty(Labels());
         Clock(9, publish: false); Tick();
         Assert.Empty(Labels());
-        GameClock.Step(); Tick();
+        GameClock.Step(); Tick(); Assert.Empty(Labels());
+        SceneLoader.FinishLoading(); Tick();
         Assert.Equal("Day 10", Label().text);
     }
 
     [Fact]
     public void SceneTransitionRebindsTheNewHudAndDiscoveryStopsWhenNoHudExists()
     {
-        var old = Display(); Clock(29); Tick();
-        SceneLoader.StartLoading(); Assert.Empty(Labels());
-        NativeObject.Destroy(old.gameObject); Tick();
+        var old = Display(); var clock = Clock(29); Tick(); var label = Label();
+        var writes = label.TextWrites; var searches = NativeObject.SceneSearches;
+        SceneLoader.StartLoading();
+        clock.Days++; GameClock.Step();
+        for (var i = 0; i < 4; i++) Tick(); // Native fade can span several HUD ticks.
+        Assert.Same(label, Label()); Assert.True(label.gameObject.activeInHierarchy);
+        Assert.Equal("Day 30", label.text); Assert.Equal(writes, label.TextWrites);
+        Assert.Equal(searches, NativeObject.SceneSearches);
+        old.gameObject.SetActive(false); Assert.False(label.gameObject.activeInHierarchy);
+        NativeObject.Destroy(old.gameObject); Tick(); Assert.Empty(Labels());
         SceneLoader.FinishLoading();
         for (var i = 0; i < 12; i++) Tick();
-        var searches = NativeObject.SceneSearches;
+        searches = NativeObject.SceneSearches;
         for (var i = 0; i < 20; i++) Tick();
         Assert.Equal(searches, NativeObject.SceneSearches);
         var replacement = Display(); LevelManager.CompleteInitialization(); Tick();
         Assert.Same(replacement.weatherText.transform.parent, Label().transform.parent);
-        Assert.Equal("Day 30", Label().text);
+        Assert.Equal("Day 31", Label().text);
     }
 
     [Fact]

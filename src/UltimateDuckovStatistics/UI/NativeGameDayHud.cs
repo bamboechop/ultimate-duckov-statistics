@@ -44,7 +44,10 @@ internal sealed class NativeGameDayHud : IDisposable
         nextTick = Time.unscaledTime + .5f;
         try
         {
-            if (loading || observedClock == null || observedClock != GameClock.Instance || awaitingClock)
+            // The native loading event precedes its fade. Keep the existing label
+            // with its HUD until that parent is hidden/unloaded, avoiding a layout jump.
+            if (loading) return;
+            if (observedClock == null || observedClock != GameClock.Instance || awaitingClock)
             {
                 ClearLabels();
                 return;
@@ -138,7 +141,7 @@ internal sealed class NativeGameDayHud : IDisposable
         ClearLabels();
     }
 
-    private void OnSceneLoading(SceneLoadingContext _) { if (!disposed) { loading = true; ClearLabels(); } }
+    private void OnSceneLoading(SceneLoadingContext _) { if (!disposed) loading = true; }
     private void OnSceneReady(SceneLoadingContext _) { if (!disposed) { loading = false; ScheduleDiscovery(); } }
     private void ScheduleDiscovery() { if (!disposed) { discoveryRemaining = DiscoveryAttempts; nextTick = 0; } }
 
