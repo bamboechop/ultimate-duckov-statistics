@@ -95,6 +95,7 @@ namespace UnityEngine
         public Quaternion localRotation;
         public int childCount => Children.Count;
         public void SetParent(Transform? value, bool worldPositionStays = false) { parent?.Children.Remove(this); parent = value!; parent?.Children.Add(this); gameObject.NotifyTextActivation(); }
+        public Transform? Find(string path) { var parts = path.Split('/'); Transform? current = this; foreach (var part in parts) current = current?.Children.FirstOrDefault(child => child.gameObject.name == part); return current; }
         public Transform GetChild(int index) => Children[index];
         public int GetSiblingIndex() => parent?.Children.IndexOf(this) ?? 0;
         public void SetSiblingIndex(int index) { if (parent == null) return; parent.Children.Remove(this); parent.Children.Insert(Math.Clamp(index, 0, parent.Children.Count), this); }
@@ -173,7 +174,7 @@ namespace UnityEngine.UI
     public class GraphicRaycaster : Behaviour { }
     public class CanvasScaler : Behaviour { }
     public class LayoutGroup : MonoBehaviour { }
-    public class LayoutElement : MonoBehaviour { }
+    public class LayoutElement : MonoBehaviour { public float minHeight, preferredHeight, flexibleWidth, minWidth, preferredWidth; }
     public class ContentSizeFitter : MonoBehaviour { }
     public class AspectRatioFitter : MonoBehaviour { }
     public class BaseMeshEffect : MonoBehaviour { }
@@ -309,6 +310,7 @@ namespace Duckov.Utilities
     public sealed class CharacterRandomPresetData { public List<CharacterRandomPreset> presets = new(); }
     public sealed class UiStyle
     {
+        public TMPro.TextMeshProUGUI? TemplateTextUGUI { get; set; }
         public UnityEngine.Sprite? FallbackItemIcon;
         public void ApplyDisplayQualityShadow(int quality, LeTai.TrueShadow.TrueShadow shadow) => shadow.AppliedQuality = quality;
     }

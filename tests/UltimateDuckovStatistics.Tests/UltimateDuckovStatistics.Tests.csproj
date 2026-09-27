@@ -11,6 +11,9 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Fixtures/Encounters/*.jsonl.gz" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeRunLifecycleAdapter.Results.cs" Link="ProductionAdapters/NativeRunLifecycleAdapter.Results.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeExtractionValuation.cs" Link="ProductionAdapters/NativeExtractionValuation.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/ExtractionSummaryPresentation.cs" Link="ProductionUI/ExtractionSummaryPresentation.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/KnownModCompatibility.cs" Link="ProductionAdapters/KnownModCompatibility.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeBuffApplicationAdapter.cs" Link="ProductionAdapters/NativeBuffApplicationAdapter.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeFirstPersonHeadshotCompatibility.cs" Link="ProductionAdapters/NativeFirstPersonHeadshotCompatibility.cs" />

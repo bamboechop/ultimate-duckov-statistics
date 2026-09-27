@@ -1,0 +1,42 @@
+# Results screen summary
+
+The source adds one UDS-owned block to Duckov 2.3.30's existing extraction/death results screen. The native title, damage-source text, XP animation, fade groups, and Continue action remain owned by the game. The block uses the native text template's font/material, equal-width metric columns and English/German labels. Native visual acceptance is still required before release.
+
+## Values and capture boundaries
+
+- **Raid time:** the completed UDS run's active duration, excluding loading and pauses, rather than the accelerated in-game clock.
+- **Your kills:** UDS's proven player-final-blow total. Other NPC, pet, and world kills are not counted as player kills. Unavailable capture remains unavailable; retained nonzero incomplete evidence is marked partial.
+- **Estimated net value:** terminal holdings estimate minus starting holdings estimate, captured at the first controllable frame of a newly observed native raid and at the extraction callback. A multi-map transition does not reset the baseline. This does not include travel costs charged before that first controllable frame.
+
+The holdings estimate is **native wallet Money + 50% of the durability-adjusted raw value of carried/equipped items and pet inventory**. Each item's base value is multiplied by current/max durability when applicable, rounded down per unit as in native `Item.GetTotalRawValue`, then multiplied by its stack count. Slots, attachments, nested inventories and loaded ammunition are traversed once; the character's own virtual root has no sale value. Physical Cash belongs to that tree and is not added again as an all-owned Cash aggregate. Stash contents are excluded.
+
+This is an estimate of the change in those holdings, not actual sale proceeds or gross loot income. Starting gear is subtracted; consumed ammunition/items and equipment wear reduce it. Vendor prices, sellability, modifiers, quest rewards, and direct stash transfers can make this differ from realized income. Inventory-to-pet transfers and unloading ammunition do not create value. A physical Cash item converted to wallet Money is subject to this same 50%-raw estimate; the UI does not claim exact currency profit.
+
+A valid start observation requires seeing the native new-raid event, not merely enabling UDS in the middle of a raid. A new raid blocked behind a previous run's pending completion does not claim an on-time baseline. Missing/unhydrated inventories, ammunition temporarily detached during reload, invalid native values, duplicate item identities, cyclic item trees, or exceeding the 16,384-item defensive bound make value unavailable. Tutorial/other runs without that fresh native identity have no guessed baseline. No old runs are backfilled.
+
+**Death:** time and kills remain available when recorded. Estimated value is unavailable because this implementation does not prove which equipment/items survive native or modded death-retention rules. It never values the pre-death corpse as extracted possessions.
+
+## Lifetime, storage and performance
+
+The baseline, terminal value and small completed-results snapshot are process-local. They are not persisted or exported and require no schema change. The snapshot contains scalar totals and generation/run/native-raid identities, never a full profile or history. Returning to the results screen does not load run history or open/build the UDS panel.
+
+There are at most two bounded holdings scans per fresh run: start and extraction. No per-frame inventory scans, added Harmony patches, background polling, or extra durable writes are introduced. Existing terminal persistence retries keep the original value boundary rather than revaluing later base inventory. If run completion is delayed, the open block can receive its matching result once the normal lifecycle completes.
+
+New runs, profile transitions, results close and mod disposal clear the snapshot. Profile/native-raid mismatches cannot display a previous result. Missing native UI structure or an exception removes only the added block and never blocks the game's results flow.
+
+## Other mods and native qualification
+
+UDS does not disable or alter other mods. Disable **Match Total & Duration & Stash Value** and **Show kills on extract** for the unified-layout smoke test, or their own independent overlays will remain visible. A full replacement results screen supplied by another mod is outside this native `ClosureView` integration.
+
+Automated tests cover scalar snapshot isolation, profile/run mismatches, fresh versus mid-raid activation, deferred death completion, terminal durability retries, missing/invalid inventories, checked valuation, loaded-ammo movement, physical Cash/pet ownership, UI creation failure and owned cleanup. These do not prove rendered layout, native glyph sizing or gameplay smoothness.
+
+Manual acceptance:
+
+1. Start a new raid with known gear/loaded ammo; pause briefly and cross a map boundary if convenient.
+2. Make a few player kills; acquire known loot, use ammunition/healing, and optionally move loot into pet inventory or unload ammunition.
+3. Extract. Compare time/kills with UDS Runs and check the estimate's sign/scale against the stated formula. Capture the results block in English/German at the normal display resolution.
+4. Verify the title/XP animation/Continue still work, and a second run shows only its own values.
+5. On a death run, verify time/kills and the explicit unavailable retained-value note.
+6. Optionally change profile or deactivate/reactivate UDS between runs; a mid-raid activation must not manufacture a profit baseline.
+
+A diagnostic performance recording can qualify the native start/extraction callbacks after other agents' builds and tests have stopped. No frame-time conclusion is inferred from automated test duration.

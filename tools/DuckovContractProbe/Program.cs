@@ -85,6 +85,10 @@ try
 
     using (var core = new AssemblyMetadata(corePath))
     {
+        core.RequireType("Duckov.UI", "ClosureView");
+        core.RequireProperty("Duckov.UI", "ManagedUIElement", "open", "System.Boolean", mustBePublic: true);
+        core.RequireEvent("Duckov.UI", "ManagedUIElement", "onOpen", "System.Action", "Duckov.UI.ManagedUIElement");
+        core.RequireEvent("Duckov.UI", "ManagedUIElement", "onClose", "System.Action", "Duckov.UI.ManagedUIElement");
         core.RequireType("Duckov.Modding", "ModBehaviour");
         core.RequireField("Duckov.Modding", "ModManager", "activeMods", mustBePrivate: true,
             mustBeInstance: true, exactFieldType: "System.Collections.Generic.Dictionary`2<System.String,Duckov.Modding.ModBehaviour>");
@@ -427,6 +431,7 @@ try
         core.RequireProperty(string.Empty, "DuckovItemAgent", "Holder", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty(string.Empty, "ItemAgent_Gun", "GunItemSetting", "ItemSetting_Gun", mustBePublic: true);
         core.RequireProperty(string.Empty, "ItemSetting_Gun", "TargetBulletID", "System.Int32", mustBePublic: true);
+        core.RequireProperty(string.Empty, "ItemSetting_Gun", "LoadingBullets", "System.Boolean", mustBePublic: true);
         core.RequireProperty(string.Empty, "ItemSetting_Gun", "CurrentBulletName", "System.String", mustBePublic: true);
         core.RequireProperty(string.Empty, "Health", "IsDead", "System.Boolean", mustBePublic: true);
         core.RequireProperty(string.Empty, "SceneInfoEntry", "ID", "System.String", mustBePublic: true);
@@ -506,6 +511,8 @@ try
         itemStats.RequireProperty("ItemStatsSystem", "ItemAgent", "Item", "ItemStatsSystem.Item", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem", "Item", "IsBeingDestroyed", "System.Boolean", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem", "Item", "StackCount", "System.Int32", mustBePublic: true);
+        itemStats.RequireProperty("ItemStatsSystem", "Item", "Value", "System.Int32", mustBePublic: true);
+        itemStats.RequireMethod("ItemStatsSystem", "Item", "GetTotalRawValue", 0, mustBePublic: true, returnTypeFragment: "System.Int32");
         itemStats.RequireMethod(
             "ItemStatsSystem", "Item", "MarkDestroyed", 0,
             mustBePublic: true, returnTypeFragment: "System.Void");
