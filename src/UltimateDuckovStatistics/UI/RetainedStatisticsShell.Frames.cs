@@ -48,7 +48,8 @@ internal sealed partial class RetainedStatisticsShell
                 break;
             case StatisticsPanelTab.Diagnostics:
                 diagnosticsView ??= new DiagnosticsView(parent, typography, material, cachedOperations!,
-                    changeHotkeyAction!, copyExportAction!, copyDataAction!, FocusSelectedTab);
+                    changeHotkeyAction!, copyExportAction!, copyDataAction!, FocusSelectedTab,
+                    KillFeedSettingsProvider, SaveKillFeedSettings);
                 containers = diagnosticsView.LoadingContainers;
                 break;
             case StatisticsPanelTab.About:

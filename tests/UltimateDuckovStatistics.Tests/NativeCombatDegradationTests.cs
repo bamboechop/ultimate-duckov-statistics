@@ -20,6 +20,7 @@ public sealed partial class NativeCombatDegradationTests : IDisposable
     private string? segmentId;
     private string loadoutId = "at-shot";
     private Func<CombatRecorded, bool>? recordEvent;
+    private Action<CombatRecorded, double?>? killFeedObservation;
 
     public NativeCombatDegradationTests()
     {
@@ -35,7 +36,8 @@ public sealed partial class NativeCombatDegradationTests : IDisposable
         MultiSceneCore.ActiveSubSceneID = "test-map";
         buffTrust.MarkTrusted();
         adapter = new(() => "g", () => "r", () => mapId, value => { events.Add(value); return recordEvent?.Invoke(value) ?? true; },
-            _ => { }, diagnostics.Add, buffTrust, () => new() { LoadoutId = loadoutId }, () => segmentId);
+            _ => { }, diagnostics.Add, buffTrust, () => new() { LoadoutId = loadoutId }, () => segmentId,
+            killFeedObserver: (value, distance) => killFeedObservation?.Invoke(value, distance));
         adapter.Initialize();
         Assert.Equal(AdapterCapabilityState.Supported, adapter.MetricCapabilities.Accuracy.State);
     }

@@ -1,0 +1,295 @@
+using System.Globalization;
+using Duckov.Scenes;
+using Saves;
+using SodaCraft.Localizations;
+using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Tracking;
+using TMPro;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using UnityEngine.UI.ProceduralImage;
+
+namespace UltimateDuckovStatistics.UI;
+
+// Passive native HUD. Combat callbacks only copy evidence into the bounded queue.
+internal sealed class NativePlayerKillFeedHud : IDisposable
+{
+    private readonly Func<KillFeedSettings> settings;
+    private readonly Action<string> diagnostic;
+    private readonly PlayerKillFeed feed = new();
+    private readonly NativeEntityDisplayNames names = new();
+    private readonly KillFeedIcons icons = new();
+    private readonly Vector3[] corners = new Vector3[4];
+    private readonly List<Row> rows = new(6);
+    private TimeOfDayDisplay? owner;
+    private RectTransform? root, canvasRect;
+    private KillFeedSettings? displayedSettings;
+    private bool disposed, failed, languageDirty;
+    private float nextDiscovery;
+    private int discoveryAttempts = 10;
+    private string? username;
+
+    internal NativePlayerKillFeedHud(Func<KillFeedSettings> settings, Action<string> diagnostic)
+    {
+        this.settings = settings; this.diagnostic = diagnostic;
+        SceneLoader.onStartedLoadingScene += Loading;
+        SceneLoader.onFinishedLoadingScene += Ready;
+        MultiSceneCore.OnSubSceneWillBeUnloaded += SubSceneLoading;
+        MultiSceneCore.OnSubSceneLoaded += SubSceneReady;
+        LevelManager.OnLevelInitialized += ScheduleDiscovery;
+        SavesSystem.OnSetFile += Reset;
+        SavesSystem.OnSaveDeleted += Reset;
+        LocalizationManager.OnSetLanguage += LanguageChanged;
+    }
+
+    internal void Record(CombatRecorded value, double? meters)
+    {
+        if (!disposed && !failed) feed.Add(value, meters, Time.unscaledTimeAsDouble, settings());
+    }
+
+    internal void Tick()
+    {
+        if (disposed || failed) return;
+        try
+        {
+            var options = settings();
+            var now = Time.unscaledTimeAsDouble;
+            var loading = SceneLoader.IsSceneLoading || (MultiSceneCore.Instance != null && MultiSceneCore.Instance.IsLoading);
+            feed.Trim(now, options);
+            if (rows.Count > 0 && (root == null || owner == null || canvasRect == null))
+            { DestroyView(); ScheduleDiscovery(); }
+            if (root == null && options.Enabled && !loading
+                && discoveryAttempts > 0 && Time.unscaledTime >= nextDiscovery)
+            {
+                discoveryAttempts--; nextDiscovery = Time.unscaledTime + .5f;
+                Discover();
+            }
+            if (root == null || owner == null || canvasRect == null) return;
+            var visible = feed.Entries.Count > 0 && options.Enabled && owner.isActiveAndEnabled
+                && owner.weatherText != null && owner.weatherText.isActiveAndEnabled && !loading;
+            if (root.gameObject.activeSelf != visible) root.gameObject.SetActive(visible);
+            if (!visible || owner.weatherText == null) return;
+
+            // World corners keep this independent of resolution, canvas scale, and
+            // native weather/day layout changes. No native layout is edited.
+            var storm = owner.stormRoot != null ? owner.stormRoot.transform as RectTransform : null;
+            var weatherBlock = owner.weatherText.transform.parent as RectTransform;
+            var anchor = storm != null && storm.gameObject.activeInHierarchy ? storm : weatherBlock;
+            if (anchor == null) { root.gameObject.SetActive(false); return; }
+            anchor.GetWorldCorners(corners);
+            var bottom = canvasRect.InverseTransformPoint(corners[0]);
+            var left = bottom.x;
+            if (storm != null)
+            {
+                storm.GetWorldCorners(corners);
+                left = canvasRect.InverseTransformPoint(corners[0]).x;
+            }
+            var edge = options.AlignRight ? canvasRect.rect.xMax - (left - canvasRect.rect.xMin) : left;
+            var position = new Vector3(edge + options.OffsetX, bottom.y - 8 - options.OffsetY, 0);
+            if (root.localPosition.x != position.x || root.localPosition.y != position.y) root.localPosition = position;
+            if (root.localScale.x != options.Scale) root.localScale = Vector3.one * options.Scale;
+            var availableWidth = Math.Max(160, canvasRect.rect.width / options.Scale - 24);
+            var refresh = languageDirty || displayedSettings != options;
+            displayedSettings = options; languageDirty = false;
+            var y = 0f;
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var show = i < feed.Entries.Count;
+                if (rows[i].Root.gameObject.activeSelf != show) rows[i].Root.gameObject.SetActive(show);
+                if (!show) continue;
+                var entry = feed.Entries[i];
+                rows[i].Bind(entry, options, PlayerName(), names.Names, icons, availableWidth, refresh);
+                var rowPosition = new Vector2(options.AlignRight ? -rows[i].Root.sizeDelta.x : 0, -y);
+                if (rows[i].Root.anchoredPosition.x != rowPosition.x || rows[i].Root.anchoredPosition.y != rowPosition.y)
+                    rows[i].Root.anchoredPosition = rowPosition;
+                var alpha = PlayerKillFeed.Opacity(entry, now, options.DurationSeconds);
+                if (rows[i].Group.alpha != alpha) rows[i].Group.alpha = alpha;
+                y += rows[i].Root.sizeDelta.y + 8;
+            }
+        }
+        catch (Exception exception)
+        {
+            failed = true; feed.Clear(); DestroyView();
+            diagnostic($"Kill-feed HUD unavailable: {exception.GetType().Name}: {exception.Message}");
+        }
+    }
+
+    private string PlayerName()
+    {
+        if (username == null)
+        {
+            try { if (SteamManager.Initialized) username = Steamworks.SteamFriends.GetPersonaName(); }
+            catch { /* Offline/native identity unavailable: use the localized role. */ }
+            username ??= string.Empty;
+        }
+        return string.IsNullOrWhiteSpace(username) ? UiText.Get("ui.killfeed_you") : username;
+    }
+
+    private void Discover()
+    {
+        foreach (var display in UnityEngine.Object.FindObjectsByType<TimeOfDayDisplay>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (display == null || !display.isActiveAndEnabled || display.weatherText == null) continue;
+            var canvas = display.GetComponentInParent<Canvas>();
+            if (canvas == null || canvas.rootCanvas.transform is not RectTransform parent) continue;
+            owner = display; canvasRect = parent;
+            root = Node(parent, "UDSPlayerKillFeed");
+            root.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            var group = root.gameObject.AddComponent<CanvasGroup>();
+            group.interactable = false; group.blocksRaycasts = false;
+            root.gameObject.SetActive(false);
+            for (var i = 0; i < 6; i++) rows.Add(new Row(root, display.weatherText, display.stormRoot));
+            discoveryAttempts = 0;
+            return;
+        }
+    }
+
+    private void Loading(SceneLoadingContext _) { Reset(); }
+    private void Ready(SceneLoadingContext _) => ScheduleDiscovery();
+    private void SubSceneLoading(MultiSceneCore _, Scene __) => Reset();
+    private void SubSceneReady(MultiSceneCore _, Scene __) => ScheduleDiscovery();
+    private void ScheduleDiscovery() { if (!disposed) { discoveryAttempts = 10; nextDiscovery = 0; } }
+    private void LanguageChanged(SystemLanguage _) { languageDirty = true; }
+    private void Reset()
+    {
+        feed.Clear(); DestroyView(); username = null; ScheduleDiscovery();
+    }
+    private void DestroyView()
+    {
+        rows.Clear();
+        if (root != null) { root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject); }
+        root = canvasRect = null; owner = null; displayedSettings = null;
+    }
+
+    public void Dispose()
+    {
+        if (disposed) return;
+        disposed = true;
+        SceneLoader.onStartedLoadingScene -= Loading;
+        SceneLoader.onFinishedLoadingScene -= Ready;
+        MultiSceneCore.OnSubSceneWillBeUnloaded -= SubSceneLoading;
+        MultiSceneCore.OnSubSceneLoaded -= SubSceneReady;
+        LevelManager.OnLevelInitialized -= ScheduleDiscovery;
+        SavesSystem.OnSetFile -= Reset;
+        SavesSystem.OnSaveDeleted -= Reset;
+        LocalizationManager.OnSetLanguage -= LanguageChanged;
+        feed.Clear(); DestroyView(); icons.Dispose(); names.Dispose();
+    }
+
+    private static RectTransform Node(Transform parent, string name)
+    {
+        var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
+        rect.SetParent(parent, false); rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
+        rect.sizeDelta = Vector2.zero;
+        return rect;
+    }
+    private static void Place(RectTransform rect, float x, float y, float w, float h)
+    { rect.anchoredPosition = new Vector2(x, -y); rect.sizeDelta = new Vector2(w, h); }
+
+    private sealed class Row
+    {
+        private const float WeaponSize = 32, MaximumWeaponWidth = 64, DistanceGap = 1;
+        internal RectTransform Root { get; }
+        internal CanvasGroup Group { get; }
+        private readonly TextMeshProUGUI first, last, distance, unknownWeapon;
+        private readonly Image weapon, headshot;
+        private readonly float paddingLeft, paddingRight, paddingTop, paddingBottom;
+        private KillFeedEntry? bound;
+        private float lastAvailableWidth;
+
+        internal Row(RectTransform parent, TextMeshProUGUI template, GameObject? storm)
+        {
+            Root = Node(parent, "Entry");
+            var background = Root.gameObject.AddComponent<ProceduralImage>();
+            // Borrow native styling, never mutate the storm's components/material.
+            // Defaults below are the inspected 2.3.30 Storm prefab values.
+            var nativeBackground = storm != null ? storm.GetComponent<ProceduralImage>() : null;
+            var nativeRadius = storm != null ? storm.GetComponent<UniformModifier>() : null;
+            var nativeLayout = storm != null ? storm.GetComponent<HorizontalLayoutGroup>() : null;
+            background.color = nativeBackground != null ? nativeBackground.color : new Color32(0, 0, 0, 109);
+            background.raycastTarget = false;
+            if (nativeBackground != null)
+            {
+                background.FalloffDistance = nativeBackground.FalloffDistance;
+                background.BorderWidth = nativeBackground.BorderWidth;
+            }
+            Root.gameObject.AddComponent<UniformModifier>().Radius = nativeRadius != null ? nativeRadius.Radius : 15;
+            paddingLeft = nativeLayout != null ? nativeLayout.padding.left : 15;
+            paddingRight = nativeLayout != null ? nativeLayout.padding.right : 20;
+            paddingTop = nativeLayout != null ? nativeLayout.padding.top : 5;
+            paddingBottom = nativeLayout != null ? nativeLayout.padding.bottom : 5;
+            Group = Root.gameObject.AddComponent<CanvasGroup>();
+            first = Text("Attacker", 24); last = Text("Victim", 24);
+            distance = Text("Distance", 16); unknownWeapon = Text("UnknownWeapon", 24);
+            distance.alignment = unknownWeapon.alignment = TextAlignmentOptions.Center;
+            // This short, measured caption must not disappear when TMP's line metrics
+            // exceed a guessed font-size-based rectangle.
+            distance.overflowMode = TextOverflowModes.Overflow;
+            weapon = Node(Root, "Weapon").gameObject.AddComponent<Image>();
+            headshot = Node(Root, "Headshot").gameObject.AddComponent<Image>();
+            weapon.raycastTarget = headshot.raycastTarget = false;
+            weapon.preserveAspect = headshot.preserveAspect = true;
+
+            TextMeshProUGUI Text(string name, float size)
+            {
+                var label = Node(Root, name).gameObject.AddComponent<TextMeshProUGUI>();
+                label.font = template.font; label.fontSharedMaterial = template.fontSharedMaterial;
+                label.fontSize = size; label.enableAutoSizing = false; label.enableWordWrapping = false;
+                label.richText = false; label.raycastTarget = false; label.color = Color.white;
+                label.alignment = TextAlignmentOptions.Left; label.overflowMode = TextOverflowModes.Ellipsis;
+                return label;
+            }
+        }
+
+        internal void Bind(KillFeedEntry entry, KillFeedSettings settings, string player,
+            EntityDisplayNames names, KillFeedIcons icons, float availableWidth, bool refresh)
+        {
+            if (ReferenceEquals(bound, entry) && !refresh && Math.Abs(lastAvailableWidth - availableWidth) < .5f) return;
+            bound = entry; lastAvailableWidth = availableWidth;
+            var actor = entry.ActorId.EndsWith(":environment", StringComparison.Ordinal) ? UiText.Get("ui.killfeed_environment")
+                : entry.ActorId.EndsWith(":unknown", StringComparison.Ordinal) ? UiText.Get("ui.killfeed_unknown")
+                : names.Get(entry.ActorId, entry.ActorName);
+            first.text = entry.PlayerDied ? actor : player; last.text = entry.PlayerDied ? player : actor;
+            var blue = new Color32(126, 166, 222, 255); var yellow = new Color32(218, 183, 96, 255);
+            first.color = entry.PlayerDied ? yellow : blue; last.color = entry.PlayerDied ? blue : yellow;
+            var showHeadshot = settings.ShowHeadshots && entry.Headshot;
+            var showDistance = settings.ShowDistance && entry.Meters.HasValue;
+            headshot.gameObject.SetActive(showHeadshot);
+            if (showHeadshot) headshot.sprite = icons.Headshot;
+            distance.gameObject.SetActive(showDistance);
+            distance.text = showDistance ? entry.Meters!.Value.ToString("0.##", CultureInfo.CurrentCulture) + " m" : string.Empty;
+            weapon.sprite = icons.Weapon(entry.WeaponId);
+            weapon.gameObject.SetActive(weapon.sprite != null);
+            unknownWeapon.gameObject.SetActive(weapon.sprite == null); unknownWeapon.text = "—";
+            var measuredDistance = distance.GetPreferredValues(distance.text);
+            var distanceHeight = showDistance ? (float)Math.Ceiling(measuredDistance.y) + 2 : 0;
+            var iconRect = weapon.sprite != null ? weapon.sprite.rect : new Rect(0, 0, WeaponSize, WeaponSize);
+            var iconScale = Math.Min(MaximumWeaponWidth / Math.Max(1, iconRect.width), WeaponSize / Math.Max(1, iconRect.height));
+            var iconWidth = iconRect.width * iconScale;
+            var iconHeight = iconRect.height * iconScale;
+            var weaponWidth = Math.Max(Math.Max(48, iconWidth), showDistance ? (float)Math.Ceiling(measuredDistance.x) + 4 : 0);
+            var nameLimit = Math.Max(32, Math.Min(260, (availableWidth - weaponWidth - (showHeadshot ? 36 : 0)
+                - paddingLeft - paddingRight - 16) / 2));
+            var firstSize = first.GetPreferredValues(first.text);
+            var lastSize = last.GetPreferredValues(last.text);
+            var a = Math.Min(nameLimit, (float)Math.Ceiling(firstSize.x) + 2);
+            var b = Math.Min(nameLimit, (float)Math.Ceiling(lastSize.x) + 2);
+            var firstHeight = (float)Math.Ceiling(firstSize.y) + 2;
+            var lastHeight = (float)Math.Ceiling(lastSize.y) + 2;
+            var weaponHeight = WeaponSize + (showDistance ? DistanceGap + distanceHeight : 0);
+            var contentHeight = Math.Max(weaponHeight, Math.Max(firstHeight, lastHeight));
+            var weaponTop = paddingTop + (contentHeight - weaponHeight) / 2;
+            var x = paddingLeft;
+            Place(first.rectTransform, x, paddingTop + (contentHeight - firstHeight) / 2, a, firstHeight); x += a + 8;
+            // Wider silhouettes can grow sideways without changing the row or caption height.
+            Place(weapon.rectTransform, x + (weaponWidth - iconWidth) / 2, weaponTop + (WeaponSize - iconHeight) / 2, iconWidth, iconHeight);
+            Place(unknownWeapon.rectTransform, x, weaponTop, weaponWidth, WeaponSize);
+            Place(distance.rectTransform, x, weaponTop + WeaponSize + DistanceGap, weaponWidth, distanceHeight); x += weaponWidth + 8;
+            if (showHeadshot) { Place(headshot.rectTransform, x, paddingTop + (contentHeight - 28) / 2, 28, 28); x += 36; }
+            Place(last.rectTransform, x, paddingTop + (contentHeight - lastHeight) / 2, b, lastHeight);
+            Root.sizeDelta = new Vector2(x + b + paddingRight, paddingTop + contentHeight + paddingBottom);
+        }
+    }
+}

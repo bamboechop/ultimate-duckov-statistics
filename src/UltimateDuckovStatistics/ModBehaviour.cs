@@ -34,6 +34,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private NativeStatisticsPanel? statisticsPanel;
     private NativeExtractionSummary? extractionSummary;
     private NativeGameDayHud? gameDayHud;
+    private NativePlayerKillFeedHud? killFeedHud;
     private Encounters.EncounterCaptureHost? encounterCapture;
 #if UDS_PERFORMANCE_DIAGNOSTICS
     private readonly NativeUiResourceDiagnostics uiResourceDiagnostics = new();
@@ -297,7 +298,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 message => Debug.Log($"{LogPrefix} {message}"),
                 buffApplicationObservationBoundary,
                 newEquipmentAdapter.CaptureAssociation,
-                () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId);
+                () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId,
+                killFeedObserver: (value, distance) => killFeedHud?.Record(value, distance));
             combatAttributionAdapter.Assign(newCombatAttributionAdapter);
             newCombatAttributionAdapter.Initialize();
             newRunLifecycleAdapter.SetPlayerDeathObserver(newCombatAttributionAdapter.RecordPlayerDeath);
@@ -341,6 +343,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             newThrowableAdapter.Initialize();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);
             gameDayHud = new NativeGameDayHud(message => Debug.LogWarning($"{LogPrefix} {message}"));
+            killFeedHud = new NativePlayerKillFeedHud(() => statisticsPanel.KillFeedSettings,
+                message => Debug.LogWarning($"{LogPrefix} {message}"));
             encounterCapture = new Encounters.EncounterCaptureHost(
                 () => runLifecycleAdapter.OwnedValue, () => profileCoordinator,
                 message => Debug.Log($"{LogPrefix} {message}"));
@@ -464,6 +468,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 #endif
         statisticsPanel?.Tick();
         gameDayHud?.Tick();
+        killFeedHud?.Tick();
     }
 
     private void OnApplicationQuit()
@@ -471,6 +476,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         // Release retained views while their native canvas still exists.
         gameDayHud?.Dispose();
         gameDayHud = null;
+        killFeedHud?.Dispose();
+        killFeedHud = null;
         statisticsPanel?.Dispose();
         statisticsPanel = null;
         encounterCapture?.Dispose();
@@ -592,6 +599,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         buffApplicationAdapter = null;
         gameDayHud?.Dispose();
         gameDayHud = null;
+        killFeedHud?.Dispose();
+        killFeedHud = null;
         statisticsPanel?.Dispose();
         statisticsPanel = null;
 

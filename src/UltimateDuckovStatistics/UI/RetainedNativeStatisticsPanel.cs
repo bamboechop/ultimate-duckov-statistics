@@ -65,6 +65,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
         shortcutGuard = new NativePanelShortcutGuard(message => coordinator.ReportUiDiagnostic(message, "Warning"));
         settingsPath = Path.Combine(coordinator.DataRoot, "settings.json");
         LoadSettings();
+        shell.KillFeedSettingsProvider = () => KillFeedSettings;
+        shell.SaveKillFeedSettings = SaveKillFeedSettings;
         nativeUi = new NativeUiIntegration(coordinator, RequestOpen, HandleSurfaceClosed);
         nativeUi.Initialize();
         entityNames.Changed += HandleLanguageChanged;
@@ -669,6 +671,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
             if (!PanelHotkey.TryParse(settings.PanelHotkey, out hotkey)) hotkey = PanelHotkey.Default;
             var needsSave = loaded == null || settings.PanelHotkey != hotkey.ToString();
             settings.PanelHotkey = hotkey.ToString();
+            settings.KillFeed = (settings.KillFeed ?? new KillFeedSettings()).Normalize();
             if (needsSave) settingsStore.Save(settingsPath, settings);
         }
         catch (Exception exception)
@@ -676,6 +679,24 @@ internal sealed class NativeStatisticsPanel : IDisposable
             Debug.LogException(exception);
             // Keep a successfully parsed binding even if normalization could
             // not be written. Read failures retain the initialized default.
+        }
+    }
+
+    internal KillFeedSettings KillFeedSettings => settings.KillFeed ??= new KillFeedSettings();
+
+    private void SaveKillFeedSettings(KillFeedSettings value)
+    {
+        var previous = settings.KillFeed;
+        try
+        {
+            settings.KillFeed = value.Normalize();
+            settingsStore.Save(settingsPath, settings);
+        }
+        catch (Exception exception)
+        {
+            settings.KillFeed = previous;
+            coordinator.ReportUiDiagnostic($"Kill-feed settings could not be saved: {exception.Message}", "Warning");
+            nativeUi.ShowToast(UiText.Get("ui.killfeed_save_failed"));
         }
     }
 

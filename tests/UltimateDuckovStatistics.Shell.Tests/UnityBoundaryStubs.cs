@@ -97,6 +97,8 @@ namespace UnityEngine
         public readonly List<Transform> Children = new();
         public Transform parent = null!;
         public Vector3 localScale = Vector3.one;
+        public Vector3 localPosition;
+        public Vector3 InverseTransformPoint(Vector3 value) => new(value.x - localPosition.x, value.y - localPosition.y, value.z - localPosition.z);
         public Quaternion localRotation;
         public int childCount => Children.Count;
         public void SetParent(Transform? value, bool worldPositionStays = false) { parent?.Children.Remove(this); parent = value!; parent?.Children.Add(this); gameObject.NotifyTextActivation(); }
@@ -114,22 +116,30 @@ namespace UnityEngine
         public Vector2 sizeDelta = new(100, 100);
         public Rect rect => new(0, 0, sizeDelta.x + (parent is RectTransform p ? p.rect.width * (anchorMax.x - anchorMin.x) : 0), sizeDelta.y + (parent is RectTransform q ? q.rect.height * (anchorMax.y - anchorMin.y) : 0));
         public void ForceUpdateRectTransforms() { }
+        public Vector3[]? TestWorldCorners;
+        public void GetWorldCorners(Vector3[] values)
+        {
+            if (TestWorldCorners != null) { Array.Copy(TestWorldCorners, values, 4); return; }
+            values[0] = new(localPosition.x, localPosition.y - sizeDelta.y, 0);
+            values[1] = localPosition; values[2] = new(localPosition.x + sizeDelta.x, localPosition.y, 0);
+            values[3] = new(localPosition.x + sizeDelta.x, localPosition.y - sizeDelta.y, 0);
+        }
         public enum Axis { Horizontal, Vertical }
         public void SetSizeWithCurrentAnchors(Axis axis, float value) { if (axis == Axis.Horizontal) sizeDelta.x = value; else sizeDelta.y = value; }
     }
     public struct Vector2(float x, float y) { public float x = x, y = y; public static Vector2 zero => new(0, 0); public static Vector2 one => new(1, 1); public static Vector2 operator +(Vector2 a, Vector2 b) => new(a.x + b.x, a.y + b.y); }
     public struct Quaternion { public static Quaternion Euler(float x, float y, float z) => new(); }
-    public struct Vector3(float x, float y, float z) { public float x = x, y = y, z = z; public static Vector3 one => new(1, 1, 1); public static Vector3 zero => new(0, 0, 0); }
+    public struct Vector3(float x, float y, float z) { public float x = x, y = y, z = z; public static Vector3 one => new(1, 1, 1); public static Vector3 zero => new(0, 0, 0); public static Vector3 operator *(Vector3 v, float scale) => new(v.x * scale, v.y * scale, v.z * scale); }
     public struct Vector4(float x, float y, float z, float w) { public float x = x, y = y, z = z, w = w; public static Vector4 zero => new(0, 0, 0, 0); }
-    public struct Rect(float x, float y, float width, float height) { public float x = x, y = y, width = width, height = height; public float yMax => y + height; }
+    public struct Rect(float x, float y, float width, float height) { public float x = x, y = y, width = width, height = height; public float yMax => y + height; public float xMax => x + width; public float xMin => x; }
     public struct Bounds { public Vector3 min, max, size, center; }
     public struct Color(float r, float g, float b, float a = 1) { public float r = r, g = g, b = b, a = a; public static Color clear => new(0, 0, 0, 0); public static Color white => new(1, 1, 1); public static Color black => new(0, 0, 0); }
     public struct Color32(byte r, byte g, byte b, byte a) { public byte r = r, g = g, b = b, a = a; public static implicit operator Color(Color32 c) => new(c.r / 255f, c.g / 255f, c.b / 255f, c.a / 255f); }
     public enum RenderMode { ScreenSpaceOverlay, ScreenSpaceCamera, WorldSpace }
-    public class Canvas : Behaviour { public float scaleFactor = 1; public int sortingOrder; public RenderMode renderMode; public bool isRootCanvas => transform.parent?.GetComponentInParent<Canvas>() == null; public Rect pixelRect => ((RectTransform)transform).rect; public static void ForceUpdateCanvases() { } }
+    public class Canvas : Behaviour { public float scaleFactor = 1; public int sortingOrder; public RenderMode renderMode; public bool isRootCanvas => transform.parent?.GetComponentInParent<Canvas>() == null; public Canvas rootCanvas => transform.parent?.GetComponentInParent<Canvas>()?.rootCanvas ?? this; public Rect pixelRect => ((RectTransform)transform).rect; public static void ForceUpdateCanvases() { } }
     public class CanvasGroup : Behaviour { public bool interactable = true, blocksRaycasts = true; public float alpha = 1; }
     public class Material : Object { public Material() { } public Material(Material source) { name = source.name; } public bool HasProperty(string key) => true; public void EnableKeyword(string key) { } public void SetColor(string key, Color value) { } }
-    public class Sprite : Object { public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot, float pixelsPerUnit) => new(); }
+    public class Sprite : Object { public Rect rect; public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot, float pixelsPerUnit) => new() { rect = rect }; }
     public enum TextureFormat { RGBA32 }
     public enum TextureWrapMode { Clamp }
     public enum FilterMode { Bilinear }
@@ -148,7 +158,7 @@ namespace UnityEngine
     public static class Input { public static readonly HashSet<KeyCode> Down = new(); public static readonly HashSet<KeyCode> Held = new(); public static bool GetKeyDown(KeyCode key) => Down.Contains(key); public static bool GetKey(KeyCode key) => Down.Contains(key) || Held.Contains(key); public static bool anyKeyDown => Down.Count > 0; public static bool anyKey => Down.Count > 0 || Held.Count > 0; }
     public enum CursorLockMode { None, Locked, Confined }
     public static class Cursor { public static bool visible; public static CursorLockMode lockState; }
-    public static class Time { public static int frameCount; public static float unscaledTime; }
+    public static class Time { public static int frameCount; public static float unscaledTime; public static double unscaledTimeAsDouble => unscaledTime; }
     public static class GUIUtility { public static string systemCopyBuffer = ""; }
 }
 namespace UnityEngine.Events
@@ -180,7 +190,7 @@ namespace UnityEngine.UI
     public class GraphicRaycaster : Behaviour { }
     public class CanvasScaler : Behaviour { }
     public class LayoutGroup : MonoBehaviour { }
-    public class LayoutElement : MonoBehaviour { public float minHeight = -1, preferredHeight = -1, flexibleWidth = -1, flexibleHeight = -1, minWidth = -1, preferredWidth = -1; }
+    public class LayoutElement : MonoBehaviour { public bool ignoreLayout; public float minHeight = -1, preferredHeight = -1, flexibleWidth = -1, flexibleHeight = -1, minWidth = -1, preferredWidth = -1; }
     public class ContentSizeFitter : MonoBehaviour { }
     public class AspectRatioFitter : MonoBehaviour { }
     public class BaseMeshEffect : MonoBehaviour { }

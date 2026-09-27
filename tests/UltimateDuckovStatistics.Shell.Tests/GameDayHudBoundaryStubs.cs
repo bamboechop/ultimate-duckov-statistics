@@ -11,7 +11,7 @@ public sealed class GameClock : MonoBehaviour
     public static int Listeners => OnGameClockStep?.GetInvocationList().Length ?? 0;
     public static void Step() => OnGameClockStep?.Invoke();
 }
-public sealed class TimeOfDayDisplay : MonoBehaviour { public TextMeshProUGUI weatherText = null!; }
+public sealed class TimeOfDayDisplay : MonoBehaviour { public TextMeshProUGUI weatherText = null!; public GameObject? stormRoot; }
 public sealed class SceneLoadingContext { }
 public static class SceneLoader
 {
