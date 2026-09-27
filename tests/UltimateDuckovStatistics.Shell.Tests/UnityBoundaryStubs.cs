@@ -179,7 +179,7 @@ namespace UnityEngine.UI
     public class GraphicRaycaster : Behaviour { }
     public class CanvasScaler : Behaviour { }
     public class LayoutGroup : MonoBehaviour { }
-    public class LayoutElement : MonoBehaviour { public float minHeight, preferredHeight, flexibleWidth, minWidth, preferredWidth; }
+    public class LayoutElement : MonoBehaviour { public float minHeight = -1, preferredHeight = -1, flexibleWidth = -1, flexibleHeight = -1, minWidth = -1, preferredWidth = -1; }
     public class ContentSizeFitter : MonoBehaviour { }
     public class AspectRatioFitter : MonoBehaviour { }
     public class BaseMeshEffect : MonoBehaviour { }

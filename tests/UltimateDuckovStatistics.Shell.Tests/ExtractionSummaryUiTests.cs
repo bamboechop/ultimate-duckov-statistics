@@ -122,6 +122,63 @@ public sealed class ExtractionSummaryUiTests : IDisposable
         UiText.ConfigureNativeResolver(null);
     }
 
+    [Theory]
+    [InlineData(1080, false)]
+    [InlineData(1440, false)]
+    [InlineData(2160, false)]
+    [InlineData(1440, true)]
+    public void NativeResultsKeepCenteredMarginsAndOnlyGrowByTheCompactSummary(float viewportHeight, bool death)
+    {
+        // Installed resources.assets: Content GO14885, Rect68773, VerticalLayoutGroup114534.
+        // It stretches the full viewport height, has no fitter, and centers its non-expanding children.
+        var nativeLayout = content.AddComponent<VerticalLayoutGroup>();
+        nativeLayout.padding = new RectOffset(16, 16, 0, 0);
+        nativeLayout.childAlignment = TextAnchor.MiddleCenter;
+        nativeLayout.childForceExpandWidth = false; nativeLayout.childForceExpandHeight = false;
+        nativeLayout.childControlWidth = true; nativeLayout.childControlHeight = true;
+        nativeLayout.childScaleWidth = true; nativeLayout.childScaleHeight = true;
+        nativeTitle.AddComponent<LayoutElement>().preferredHeight = 140; // Representative measured native title.
+        nativeExp.AddComponent<LayoutElement>().preferredHeight = 248.85f; // Serialized native element86988.
+        nativeContinue.AddComponent<LayoutElement>().preferredHeight = 104.88f; // Serialized native element91948.
+        if (death)
+        {
+            var reason = new GameObject("ReasonOfDeath", typeof(LayoutElement));
+            reason.transform.SetParent(content.transform); reason.transform.SetSiblingIndex(1);
+            reason.GetComponent<LayoutElement>().preferredHeight = 36;
+        }
+        var before = ExtractionVerticalLayout.Rebuild(content, viewportHeight);
+        var nativePreferences = NativePreferences(nativeLayout);
+        using (var ui = Ready())
+        {
+            if (death) UiText.ConfigureNativeResolver(key => UiText.GermanFallbacks.TryGetValue(key, out var text) ? text : null);
+            view.Open();
+            var after = ExtractionVerticalLayout.Rebuild(content, viewportHeight);
+            var block = content.transform.Find("UDS.ResultsSummary")!.gameObject;
+            var row = block.transform.Find("Metrics")!.gameObject;
+            var footer = block.transform.GetChild(1).gameObject;
+            var blockBounds = after[block];
+            Assert.InRange(blockBounds.Height, 144, 150);
+            Assert.InRange(after[footer].Top - after[row].Bottom, 8, 9);
+            Assert.InRange(after[footer].Bottom, blockBounds.Bottom - 4, blockBounds.Bottom);
+            Assert.Equal(before[nativeTitle].Top - blockBounds.Height / 2, after[nativeTitle].Top, 2);
+            Assert.Equal(after[nativeTitle].Top, viewportHeight - after[nativeContinue].Bottom, 2);
+            Assert.True(after[nativeTitle].Top > 100);
+            Assert.Equal(before[nativeContinue].Height, after[nativeContinue].Height);
+            Assert.Equal(before[nativeExp].Height, after[nativeExp].Height);
+            Assert.Equal(nativePreferences, NativePreferences(nativeLayout));
+            view.Close();
+            var closed = ExtractionVerticalLayout.Rebuild(content, viewportHeight);
+            Assert.Equal(before[nativeTitle], closed[nativeTitle]);
+            Assert.Equal(before[nativeContinue], closed[nativeContinue]);
+        }
+        UiText.ConfigureNativeResolver(null);
+    }
+
+    private static object NativePreferences(VerticalLayoutGroup layout) =>
+        (layout.padding.left, layout.padding.right, layout.padding.top, layout.padding.bottom,
+            layout.childAlignment, layout.spacing, layout.childForceExpandWidth, layout.childForceExpandHeight,
+            layout.childControlWidth, layout.childControlHeight, layout.childScaleWidth, layout.childScaleHeight);
+
     private static NativeExtractionSummary Ready()
     {
         var ui = new NativeExtractionSummary(() => "g", _ => { }, () => 100);

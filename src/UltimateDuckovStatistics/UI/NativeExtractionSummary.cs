@@ -78,7 +78,9 @@ internal sealed class NativeExtractionSummary : IDisposable
             var rect = (RectTransform)root.transform;
             rect.sizeDelta = new Vector2(900, 150);
             var size = root.GetComponent<LayoutElement>();
-            size.minHeight = 150; size.preferredHeight = 150; size.flexibleWidth = 1;
+            // Duckov's full-height Content centers non-expanding children. A preferred height
+            // alone does not override the group's flexible height (LayoutElement defaults to -1).
+            size.minHeight = 150; size.preferredHeight = 150; size.flexibleWidth = 1; size.flexibleHeight = 0;
             var layout = root.GetComponent<VerticalLayoutGroup>();
             layout.spacing = 8; layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childControlWidth = true; layout.childControlHeight = true;
@@ -86,10 +88,11 @@ internal sealed class NativeExtractionSummary : IDisposable
 
             var row = new GameObject("Metrics", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
             row.transform.SetParent(root.transform, false);
-            row.GetComponent<LayoutElement>().preferredHeight = 84;
+            var rowSize = row.GetComponent<LayoutElement>();
+            rowSize.preferredHeight = 84; rowSize.flexibleHeight = 0;
             var rowLayout = row.GetComponent<HorizontalLayoutGroup>();
             rowLayout.spacing = 24; rowLayout.childControlWidth = true; rowLayout.childControlHeight = true;
-            rowLayout.childForceExpandWidth = true; rowLayout.childForceExpandHeight = true;
+            rowLayout.childForceExpandWidth = true; rowLayout.childForceExpandHeight = false;
             var keys = new[] { "ui.results_time", "ui.results_kills", "ui.results_net_value" };
             values = new TextMeshProUGUI[3];
             for (var index = 0; index < keys.Length; index++)
