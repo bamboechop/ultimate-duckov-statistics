@@ -22,11 +22,11 @@ Disable the standalone **Show Game Days** mod before checking this feature in ga
 
 The installed-assembly contract probe checks the native weather anchor in addition to its existing clock, scene, level, localization and text-template contracts. Automated boundaries do not prove native glyph rendering, layout, shadow appearance or frame-time impact.
 
-Local validation on 2026-09-27 passed: 2,519 core tests and 144 shell tests in both Debug and Release (including 12 HUD cases), native Debug/Release builds with no warnings or errors, the installed contract probe, changed-source formatting, and the ordinary 13-file package audit. These are automated checks. The user accepted the label appearance, but observed that removing it at loading-start shifted the weather layout just before the leave animation. The small freeze-during-loading correction requires a follow-up transition check; the other native matrix cases below remain unconfirmed.
+Local validation on 2026-09-27 passed: 2,519 core tests and 144 shell tests in both Debug and Release (including 12 HUD cases), native Debug/Release builds with no warnings or errors, the installed contract probe, changed-source formatting, and the ordinary 13-file package audit. These are automated checks. On 2026-09-27, the user accepted the label appearance and then confirmed the corrected base-departure fade and arrival behavior in the deployed build. The correction retains the existing label until its native HUD disappears, preventing the early weather-layout shift. Save switching, live language switching, sleep/midnight and reactivation remain separate, unconfirmed native checks.
 
-Native acceptance remains required:
+Native acceptance checklist:
 
-1. Disable **Show Game Days** and activate the reviewed UDS package. Label appearance is accepted. Recheck that the day label stays in place with the native HUD during the outgoing fade, then appears once on arrival without shifting or obscuring weather/clock/storm information.
+1. **Accepted:** label appearance and the corrected base-departure fade/arrival behavior. Keep **Show Game Days** disabled when checking UDS alone to avoid duplicate labels.
 2. Change between English and German while the HUD exists: the same label must become `Day N` / `Tag N`. Close and reopen any UI that hides the HUD and check it returns once.
 3. Sleep across a day and, when convenient, observe midnight. The number should follow the saved game's day within half a second, without requiring a UDS panel open.
 4. Transition between base and raid and select another save with a different day. Check that no old-save value flashes during loading and that the new day appears without duplicates. Existing statistics should stay unchanged by merely displaying the HUD.
