@@ -2,7 +2,7 @@
 
 The passive raid HUD shows confirmed player kills and player deaths. It excludes unrelated NPC/world deaths, companion kills and assists. It uses blue for the Steam player name and yellow for the other actor, with a white weapon silhouette between them. Incoming entries put the killer first. Native colored item icons are the fallback when a silhouette cannot be made; an unknown weapon uses a dash. A verified outgoing headshot adds a white head/crosshair pictogram. Smoke, blindness and no-scope status are not displayed.
 
-The feed starts at the native storm information box's left edge, eight native UI units beneath its bottom. If that box is hidden, the bottom follows the weather/day text block. Rows have an eight-unit gap and follow native canvas scaling. Their background color, opacity, corner radius and padding come from the native storm box. Names and the headshot icon are centered against a compact 32-unit weapon icon with a 16-unit distance caption one unit beneath it; measured text heights keep the distance visible. No native weather layout is modified. Default duration is ten unscaled seconds, newest first, maximum six entries, with a short entrance and one-second exit fade.
+The feed starts at the native storm information box's left edge, eight native UI units beneath its bottom. If that box is hidden, the bottom follows the weather/day text block. Rows have an eight-unit gap and follow native canvas scaling. Their background color, opacity, corner radius and padding come from the native storm box. Generated weapon silhouettes have fully transparent margins trimmed and preserve their proportions within a 64-unit width and 32-unit height limit. Wider weapons get more horizontal space without increasing row height. Names and the headshot icon are centered against that fixed-height weapon band and its 16-unit distance caption; the caption is centered beneath the weapon with a one-unit gap below the band. Measured text heights keep the distance visible. No native weather layout is modified. Default duration is ten unscaled seconds, newest first, maximum six entries, with a short entrance and one-second exit fade.
 
 ## Settings
 
@@ -38,6 +38,8 @@ Unity/TMP, Steam and GPU boundaries in those tests are simulated. In-game appear
 Local checks on 2026-09-27 passed 2,562 core tests and 208 shell tests in both Debug and Release, plus 210 shell tests with both diagnostic flags enabled. Ordinary Release and combined-diagnostic Debug native builds completed with no warnings or errors. The installed contract probe and ordinary 13-file package audit passed. These checks do not constitute native visual acceptance.
 
 The subsequent row-layout correction passed 211 Release shell tests and a zero-warning native Release build. Its regressions check native background/padding reuse, measured distance-label bounds and vertical centering with distance enabled or hidden. Inspection of the installed Storm prefab found black at alpha 109/255 and radius 15; live components supply those values to the feed instead of independent styling constants.
+
+The silhouette-sizing update passed 216 Release shell tests and a zero-warning native Release build. Added checks cover transparent-margin trimming without dropping faint edges, empty/single-pixel bounds, and wider weapons with preserved proportions, centered distance captions and unchanged row height. Actual GPU icon appearance remains part of the native check below.
 
 Native test checklist:
 

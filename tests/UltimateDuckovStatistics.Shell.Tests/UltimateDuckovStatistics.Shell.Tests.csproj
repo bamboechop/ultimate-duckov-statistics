@@ -36,6 +36,7 @@
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeProfileResetTransition.cs" Link="ProductionAdapters/NativeProfileResetTransition.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/NativeGameDayHud.cs" Link="ProductionUI/NativeGameDayHud.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/NativePlayerKillFeedHud.cs" Link="ProductionUI/NativePlayerKillFeedHud.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/KillFeedIconGeometry.cs" Link="ProductionUI/KillFeedIconGeometry.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/NativeUiIntegration.cs" Link="ProductionUI/NativeUiIntegration.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/NativeItemIconAppearance.cs" Link="ProductionUI/NativeItemIconAppearance.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/OwnedTotemIconShadow.cs" Link="ProductionUI/OwnedTotemIconShadow.cs" />

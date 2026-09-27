@@ -181,7 +181,7 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
 
     private sealed class Row
     {
-        private const float WeaponSize = 32, DistanceGap = 1;
+        private const float WeaponSize = 32, MaximumWeaponWidth = 64, DistanceGap = 1;
         internal RectTransform Root { get; }
         internal CanvasGroup Group { get; }
         private readonly TextMeshProUGUI first, last, distance, unknownWeapon;
@@ -256,7 +256,11 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
             unknownWeapon.gameObject.SetActive(weapon.sprite == null); unknownWeapon.text = "—";
             var measuredDistance = distance.GetPreferredValues(distance.text);
             var distanceHeight = showDistance ? (float)Math.Ceiling(measuredDistance.y) + 2 : 0;
-            var weaponWidth = Math.Max(48, showDistance ? (float)Math.Ceiling(measuredDistance.x) + 4 : 0);
+            var iconRect = weapon.sprite != null ? weapon.sprite.rect : new Rect(0, 0, WeaponSize, WeaponSize);
+            var iconScale = Math.Min(MaximumWeaponWidth / Math.Max(1, iconRect.width), WeaponSize / Math.Max(1, iconRect.height));
+            var iconWidth = iconRect.width * iconScale;
+            var iconHeight = iconRect.height * iconScale;
+            var weaponWidth = Math.Max(Math.Max(48, iconWidth), showDistance ? (float)Math.Ceiling(measuredDistance.x) + 4 : 0);
             var nameLimit = Math.Max(32, Math.Min(260, (availableWidth - weaponWidth - (showHeadshot ? 36 : 0)
                 - paddingLeft - paddingRight - 16) / 2));
             var firstSize = first.GetPreferredValues(first.text);
@@ -270,7 +274,8 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
             var weaponTop = paddingTop + (contentHeight - weaponHeight) / 2;
             var x = paddingLeft;
             Place(first.rectTransform, x, paddingTop + (contentHeight - firstHeight) / 2, a, firstHeight); x += a + 8;
-            Place(weapon.rectTransform, x + (weaponWidth - WeaponSize) / 2, weaponTop, WeaponSize, WeaponSize);
+            // Wider silhouettes can grow sideways without changing the row or caption height.
+            Place(weapon.rectTransform, x + (weaponWidth - iconWidth) / 2, weaponTop + (WeaponSize - iconHeight) / 2, iconWidth, iconHeight);
             Place(unknownWeapon.rectTransform, x, weaponTop, weaponWidth, WeaponSize);
             Place(distance.rectTransform, x, weaponTop + WeaponSize + DistanceGap, weaponWidth, distanceHeight); x += weaponWidth + 8;
             if (showHeadshot) { Place(headshot.rectTransform, x, paddingTop + (contentHeight - 28) / 2, 28, 28); x += 36; }

@@ -139,7 +139,7 @@ namespace UnityEngine
     public class Canvas : Behaviour { public float scaleFactor = 1; public int sortingOrder; public RenderMode renderMode; public bool isRootCanvas => transform.parent?.GetComponentInParent<Canvas>() == null; public Canvas rootCanvas => transform.parent?.GetComponentInParent<Canvas>()?.rootCanvas ?? this; public Rect pixelRect => ((RectTransform)transform).rect; public static void ForceUpdateCanvases() { } }
     public class CanvasGroup : Behaviour { public bool interactable = true, blocksRaycasts = true; public float alpha = 1; }
     public class Material : Object { public Material() { } public Material(Material source) { name = source.name; } public bool HasProperty(string key) => true; public void EnableKeyword(string key) { } public void SetColor(string key, Color value) { } }
-    public class Sprite : Object { public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot, float pixelsPerUnit) => new(); }
+    public class Sprite : Object { public Rect rect; public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot, float pixelsPerUnit) => new() { rect = rect }; }
     public enum TextureFormat { RGBA32 }
     public enum TextureWrapMode { Clamp }
     public enum FilterMode { Bilinear }

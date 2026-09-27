@@ -23,6 +23,7 @@ public sealed class NativePlayerKillFeedHudTests : IDisposable
 
     public NativePlayerKillFeedHudTests()
     {
+        KillFeedIcons.Weapons.Clear();
         SceneLoader.FinishLoading(); Time.unscaledTime = 0;
         LocalizationManager.SetLanguage(SystemLanguage.English);
         UiText.ConfigureNativeResolver(key => LocalizationManager.CurrentLanguage == SystemLanguage.German
@@ -119,6 +120,36 @@ public sealed class NativePlayerKillFeedHudTests : IDisposable
     }
 
     [Fact]
+    public void WideWeaponsGrowSidewaysWithCenteredDistanceAndUnchangedRowHeight()
+    {
+        KillFeedIcons.Weapons["pistol"] = new Sprite { rect = new Rect(0, 0, 60, 80) };
+        // Simulate the GPU readback with a wide weapon inside a square inventory icon.
+        var pixels = new Color32[128 * 128];
+        for (var y = 52; y < 76; y++)
+            for (var x = 16; x < 112; x++) pixels[y * 128 + x] = new Color32(255, 255, 255, 255);
+        KillFeedIcons.Weapons["rifle"] = new Sprite { rect = KillFeedIconGeometry.VisibleBounds(pixels, 128, 128) };
+        hud.Record(Kill("pistol") with { WeaponId = "pistol" }, 9.02); hud.Tick();
+        var pistolRow = (RectTransform)Root().GetChild(0);
+        var rowHeight = pistolRow.sizeDelta.y;
+        var pistolWidth = ((RectTransform)pistolRow.Find("Weapon")!).sizeDelta.x;
+        var captionY = Label("Distance").rectTransform.anchoredPosition.y;
+
+        hud.Record(Kill("rifle") with { WeaponId = "rifle" }, 9.02); hud.Tick();
+        var rifleRow = (RectTransform)Root().GetChild(0);
+        var weapon = (RectTransform)rifleRow.Find("Weapon")!;
+        var caption = Label("Distance").rectTransform;
+        Assert.True(weapon.sizeDelta.x > pistolWidth);
+        Assert.Equal(64, weapon.sizeDelta.x); // Extreme aspect ratios stop at the width cap.
+        Assert.Equal(4, weapon.sizeDelta.x / weapon.sizeDelta.y);
+        Assert.Equal(rowHeight, rifleRow.sizeDelta.y);
+        Assert.Equal(captionY, caption.anchoredPosition.y);
+        Assert.Equal(weapon.anchoredPosition.x + weapon.sizeDelta.x / 2, caption.anchoredPosition.x + caption.sizeDelta.x / 2);
+        Assert.True(-caption.anchoredPosition.y > -weapon.anchoredPosition.y + weapon.sizeDelta.y);
+        Assert.True(weapon.anchoredPosition.x + weapon.sizeDelta.x < ((RectTransform)rifleRow.Find("Headshot")!).anchoredPosition.x);
+        Assert.True(weapon.GetComponent<Image>().preserveAspect);
+    }
+
+    [Fact]
     public void SettledHudDoesNotRediscoverOrRebindEveryFrameAndExpiresWithUnscaledTime()
     {
         hud.Record(Kill("1"), 5); hud.Tick();
@@ -187,6 +218,7 @@ public sealed class NativePlayerKillFeedHudTests : IDisposable
     };
     public void Dispose()
     {
+        KillFeedIcons.Weapons.Clear();
         hud.Dispose(); NativeObject.Destroy(canvas); UiText.ConfigureNativeResolver(null);
         LocalizationManager.SetLanguage(SystemLanguage.English);
         SceneLoader.FinishLoading(); Time.unscaledTime = 0;

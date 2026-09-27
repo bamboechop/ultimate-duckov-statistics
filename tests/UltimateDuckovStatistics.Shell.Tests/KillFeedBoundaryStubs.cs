@@ -4,7 +4,8 @@ namespace UltimateDuckovStatistics.UI
     internal sealed class KillFeedIcons : IDisposable
     {
         internal UnityEngine.Sprite Headshot { get; } = new();
-        internal UnityEngine.Sprite? Weapon(string _) => null;
+        internal static Dictionary<string, UnityEngine.Sprite> Weapons { get; } = new();
+        internal UnityEngine.Sprite? Weapon(string id) => Weapons.GetValueOrDefault(id);
         public void Dispose() { }
     }
 }

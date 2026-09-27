@@ -36,9 +36,10 @@ internal sealed class KillFeedIcons : IDisposable
             texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
             texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
             var pixels = texture.GetPixels32();
+            var visibleBounds = KillFeedIconGeometry.VisibleBounds(pixels, width, height);
             for (var i = 0; i < pixels.Length; i++) pixels[i] = new Color32(255, 255, 255, pixels[i].a);
             texture.SetPixels32(pixels); texture.Apply(false, true);
-            result = Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(.5f, .5f));
+            result = Sprite.Create(texture, visibleBounds, new Vector2(.5f, .5f));
             owned.Add(result); texture = null;
         }
         catch { /* Native color icon is a valid fallback on unsupported GPU/sprite layouts. */ }
