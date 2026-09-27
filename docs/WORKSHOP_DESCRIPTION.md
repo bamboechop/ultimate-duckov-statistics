@@ -1,4 +1,4 @@
-# Workshop description for 1.4.0
+# Workshop description for 1.5.0
 
 Paste the contents of the code block below into the Steam Workshop description. It uses [Steam formatting tags](https://steamcommunity.com/comment/ForumTopic/formattinghelp); do not copy the Markdown code fences or these preparation notes. The final link is the GitHub repository, following the author attribution and AI usage disclosure.
 
@@ -13,6 +13,7 @@ The preview is tracked at [mod/preview.png](../mod/preview.png), with the short 
 [list]
 [*][b]Raids and routes:[/b] Revisit recorded runs, the maps you visited, active raid time, distance travelled, extractions, and containers opened.
 [*][b]Map & Kills:[/b] Watch your recorded route unfold, including teleport connections. Select an encounter to see where it happened, the distance between you and the enemy when both positions are known, damage exchanged, weapons, ammunition, and inspected loot. Repeated visits to the same map stay separate.
+[*][b]Player kill feed:[/b] See your kills and deaths beneath the storm info, with weapon silhouettes, known fatal distances and verified outgoing headshots. Adjust its placement, size, duration and entry count in Diagnostics; defaults are six entries lasting ten seconds.
 [*][b]Extraction summary:[/b] See active raid time, your kills and estimated net value together on the results screen. Value is the change in wallet plus 50% of durability-adjusted carried/equipped/pet raw item value, not actual sale proceeds; it stays unavailable after death.
 [*][b]Current game day:[/b] A native-styled day label appears beneath the weather, with proper English and German text.
 [*][b]Personal records:[/b] Follow highlights such as your fastest extraction, longest successful raid, and longest and shortest recorded kill distance.
@@ -43,9 +44,9 @@ Want to help bring UDS to your language? [b]Leave a comment below and tell me wh
 [h2]Compatibility and feedback[/h2]
 Tested on [b]Windows with Duckov 2.3.30[/b]. UDS records the statistics exposed by the game and labels incomplete or unavailable measurements. Game updates or other mods can affect tracking; check Diagnostics if something looks wrong.
 
-Version 1.4.0 supports inspected builds of [b]First Person Camera, Become Veteran, and Storage Search Bar[/b]. Other builds or additional patches may affect recording. Enable Harmony and optional mods before UDS, then restart Duckov after changing the enabled mod set. Earlier missing statistics cannot be backfilled.
+Version 1.5.0 supports inspected builds of [b]First Person Camera, Become Veteran, and Storage Search Bar[/b]. Other builds or additional patches may affect recording. Enable Harmony and optional mods before UDS, then restart Duckov after changing the enabled mod set. Earlier missing statistics cannot be backfilled.
 
-UDS includes a day label and results summary. Disable [b]Show Game Days[/b], [b]Match Total & Duration & Stash Value[/b] and [b]Show kills on extract[/b] if you want only the UDS displays; UDS does not disable other mods for you.
+UDS includes a kill feed, day label and results summary. Disable [b]CS Like Kill Feed[/b], [b]Show Game Days[/b], [b]Match Total & Duration & Stash Value[/b] and [b]Show kills on extract[/b] if you want only the UDS displays; UDS does not disable other mods for you.
 
 Found a bug or have a suggestion? Leave a comment or open a GitHub issue with your UDS version, game version, and steps to reproduce it.
 

@@ -1,3 +1,18 @@
+# Ultimate Duckov Statistics 1.5.0
+
+[Version 1.5.0 is released on GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.5.0), adding a configurable player kill feed and clearer spacing on the results screen.
+
+- **Player kill feed:** see your kills and deaths beneath the storm information, with a blue player name, yellow enemy name and white weapon silhouette. Only player-related events appear; unrelated NPC deaths, companion kills and assists are excluded.
+- **Distance and headshots:** known horizontal distance at the fatal hit appears beneath the weapon, with an optional icon for verified outgoing headshots. Missing or cross-map position evidence hides the distance instead of guessing. Incoming headshots are not claimed.
+- **Native styling and controls:** rows match the storm box's background and padding. Weapon silhouettes preserve their proportions, giving rifles enough horizontal space without taller rows. Defaults are six entries lasting ten seconds; English/German controls under **Diagnostics → Data & settings → Kill feed** adjust visibility, duration, entry count, size, alignment, offsets, distance and headshots. Entries clear on map/save transitions, including travel between raid maps.
+- **Results-screen spacing:** statistics have additional space beneath the native death details, preventing the killer badge decoration from overlapping their labels. Successful extractions receive the same compact inset; the native EXP animation and Continue action are preserved.
+
+Disable the standalone **CS Like Kill Feed** mod to avoid duplicate feeds. UDS does not disable or change other mods. The game-day HUD, extraction summary, modifier shortcuts and earlier statistics features remain included.
+
+Requires Duckov 2.3.30 on Windows and separately installed HarmonyLib. Existing statistics and panel shortcuts are preserved: profile/export schema 1 and the `v1` data directory are unchanged. Only kill-feed preferences are added to the existing settings file; the feed itself is transient and adds no persisted encounter history or new Harmony patches.
+
+Download `UltimateDuckovStatistics-v1.5.0.zip` and its `.sha256` sidecar. The ordinary package contains the same 13 permitted files and excludes diagnostic instrumentation and game/Harmony binaries. See [installation](INSTALL.md), [kill-feed settings](docs/PLAYER_KILL_FEED.md), and [validation evidence](TESTING.md). The first Steam Workshop listing and subscription-install verification remain separate from GitHub publication.
+
 # Ultimate Duckov Statistics 1.4.0
 
 [Version 1.4.0 is released on GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.4.0). It combines the game-day HUD, results summary and modifier shortcuts merged through [PR #34](https://github.com/bamboechop/ultimate-duckov-statistics/pull/34), [PR #35](https://github.com/bamboechop/ultimate-duckov-statistics/pull/35) and [PR #36](https://github.com/bamboechop/ultimate-duckov-statistics/pull/36).

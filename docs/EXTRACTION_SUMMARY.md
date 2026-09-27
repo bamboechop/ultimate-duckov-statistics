@@ -1,6 +1,6 @@
 # Results screen summary
 
-UDS 1.4.0 adds one UDS-owned block to Duckov 2.3.30's existing extraction/death results screen. The native title, damage-source text, XP animation, fade groups, and Continue action remain owned by the game. The block uses the native text template's font/material, equal-width metric columns and English/German labels. English/German extraction layout and populated results passed user acceptance on September 27, 2026. Death-screen behavior remains a separate native check.
+Since 1.4.0, UDS includes one UDS-owned block in Duckov 2.3.30's existing extraction/death results screen. The native title, damage-source text, XP animation, fade groups, and Continue action remain owned by the game. The block uses the native text template's font/material, equal-width metric columns and English/German labels. English/German extraction layout and populated results passed user acceptance on September 27, 2026. The additional 1.5.0 spacing beneath the native death details was also accepted on that date.
 
 ## Values and capture boundaries
 
@@ -44,7 +44,9 @@ The numeric JSON schema and payload-hash checks are unchanged. Previously stored
 
 Diagnostics must distinguish healthy capture contracts from successful publication. A rejected encounter record keeps current profile persistence in an error state until that exact generation/run/kind/record is accepted; another successful record or snapshot cannot clear it. Storage errors now also affect the overall banner. Normal deferred writes remain pending without claiming a failure, and old incomplete raids do not imply that today's combat hooks are unavailable. Regression coverage exercises actual repository rejection, an unrelated successful write, exact retry, repeated throttled errors and retained-panel refresh.
 
-After deployment on September 27, 2026, the user accepted a fresh extraction with time, player kills and estimated net value populated in the compact layout, then confirmed that the fixes work and both German and English were tested. The deployed runtime passed 2,546 main tests and 154 shell tests in each of Debug and Release, the installed contract probe, native Release build, ordinary package audit and independent hash readback of all 13 deployed files. Death-screen behavior and dedicated frame-time qualification have not been explicitly confirmed by this acceptance.
+After deployment on September 27, 2026, the user accepted a fresh extraction with time, player kills and estimated net value populated in the compact layout, then confirmed that the fixes work and both German and English were tested. The deployed runtime passed 2,546 main tests and 154 shell tests in each of Debug and Release, the installed contract probe, native Release build, ordinary package audit and independent hash readback of all 13 deployed files. That initial acceptance did not explicitly confirm death-screen placement or dedicated frame-time qualification.
+
+The user subsequently accepted the 1.5.0 death-screen spacing correction on September 27, 2026 after deployment, describing the placement as perfect. The owned summary now has a 24-unit top inset beneath the native killer badge; 218 Release shell tests, a warning-free native Release build, the ordinary package audit and all 13 deployed-file hashes passed. This confirms placement, not a new frame-time benchmark or every death-value scenario.
 
 ## Other mods and native qualification
 

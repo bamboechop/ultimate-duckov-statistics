@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$DuckovPath,
 
-    [string]$Version = '1.4.0'
+    [string]$Version = '1.5.0'
 )
 
 $ErrorActionPreference = 'Stop'
