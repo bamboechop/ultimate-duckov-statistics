@@ -7,6 +7,9 @@ namespace UnityEngine
         public string name = "";
         public HideFlags hideFlags;
         public bool Destroyed;
+        public static int SceneSearches;
+        public static T[] FindObjectsByType<T>(FindObjectsInactive inactive, FindObjectsSortMode sorting) where T : Component
+        { SceneSearches++; return GameObject.Live.SelectMany(go => go.GetComponents<T>()).ToArray(); }
         public int GetInstanceID() => GetHashCode();
         public static T Instantiate<T>(T source, Transform parent, bool worldPositionStays) where T : Component
         {
@@ -20,6 +23,8 @@ namespace UnityEngine
         public override bool Equals(object? other) => ReferenceEquals(this, other);
         public override int GetHashCode() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
     }
+    public enum FindObjectsInactive { Exclude, Include }
+    public enum FindObjectsSortMode { None }
     public enum HideFlags { None, DontSave, HideAndDontSave }
     public class Component : Object
     {
@@ -199,7 +204,10 @@ namespace TMPro
         // Glyph ink remains a native visual check; wrapping uses the measurement model below.
         public TMP_TextInfo textInfo = new();
         public static long Measurements;
-        public string text = ""; public TMP_FontAsset font = null!; public Material fontSharedMaterial = null!;
+        private string content = "";
+        public int TextWrites;
+        public string text { get => content; set { content = value; TextWrites++; } }
+        public TMP_FontAsset font = null!; public Material fontSharedMaterial = null!;
         public float fontSize = -99, fontSizeMin, fontSizeMax, characterSpacing, lineSpacing, wordSpacing, paragraphSpacing;
         public FontWeight fontWeight; public FontStyles fontStyle; public TextAlignmentOptions alignment; public TextOverflowModes overflowMode;
         public bool enableWordWrapping, enableAutoSizing, enableKerning, richText; public Vector4 margin;
@@ -242,6 +250,9 @@ public sealed class LevelManager : UnityEngine.Object
 {
     private static LevelManager? instance;
     public static int MissingInstanceSearches;
+    public static event Action? OnLevelInitialized;
+    public static int InitializedListeners => OnLevelInitialized?.GetInvocationList().Length ?? 0;
+    public static void CompleteInitialization() => OnLevelInitialized?.Invoke();
     public static LevelManager? Instance
     {
         get { if (instance == null) MissingInstanceSearches++; return instance; }
@@ -309,6 +320,7 @@ namespace Duckov.Utilities
     public sealed class CharacterRandomPresetData { public List<CharacterRandomPreset> presets = new(); }
     public sealed class UiStyle
     {
+        public TMPro.TextMeshProUGUI TemplateTextUGUI = null!;
         public UnityEngine.Sprite? FallbackItemIcon;
         public void ApplyDisplayQualityShadow(int quality, LeTai.TrueShadow.TrueShadow shadow) => shadow.AppliedQuality = quality;
     }

@@ -32,6 +32,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private readonly ProcessLifetimeCleanupOwner<NativeWorldTimeAdapter> worldTimeAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeCraftingAdapter> craftingAdapter = new();
     private NativeStatisticsPanel? statisticsPanel;
+    private NativeGameDayHud? gameDayHud;
     private Encounters.EncounterCaptureHost? encounterCapture;
 #if UDS_PERFORMANCE_DIAGNOSTICS
     private readonly NativeUiResourceDiagnostics uiResourceDiagnostics = new();
@@ -334,6 +335,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             throwableAdapter.Assign(newThrowableAdapter);
             newThrowableAdapter.Initialize();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);
+            gameDayHud = new NativeGameDayHud(message => Debug.LogWarning($"{LogPrefix} {message}"));
             encounterCapture = new Encounters.EncounterCaptureHost(
                 () => runLifecycleAdapter.OwnedValue, () => profileCoordinator,
                 message => Debug.Log($"{LogPrefix} {message}"));
@@ -456,11 +458,14 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Panel))
 #endif
         statisticsPanel?.Tick();
+        gameDayHud?.Tick();
     }
 
     private void OnApplicationQuit()
     {
         // Release retained views while their native canvas still exists.
+        gameDayHud?.Dispose();
+        gameDayHud = null;
         statisticsPanel?.Dispose();
         statisticsPanel = null;
         encounterCapture?.Dispose();
@@ -578,6 +583,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         healingAttributionAdapter = null;
         buffApplicationAdapter?.Dispose();
         buffApplicationAdapter = null;
+        gameDayHud?.Dispose();
+        gameDayHud = null;
         statisticsPanel?.Dispose();
         statisticsPanel = null;
 

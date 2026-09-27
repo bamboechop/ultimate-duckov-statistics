@@ -6,6 +6,7 @@ internal static class GermanText
     // The English table remains the fallback and source of truth for key coverage.
     public static IReadOnlyDictionary<string, string> All { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["ui.game_day"] = "Tag {0}",
         ["ui.encounters_details"] = "Details",
         ["ui.encounters_tab"] = "Karte & Kills",
         ["ui.encounters_killed"] = "Von dir eliminiert",
