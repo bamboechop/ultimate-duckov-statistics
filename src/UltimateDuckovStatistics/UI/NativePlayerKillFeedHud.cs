@@ -181,6 +181,7 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
 
     private sealed class Row
     {
+        private const float WeaponSize = 32, DistanceGap = 1;
         internal RectTransform Root { get; }
         internal CanvasGroup Group { get; }
         private readonly TextMeshProUGUI first, last, distance, unknownWeapon;
@@ -212,7 +213,7 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
             paddingBottom = nativeLayout != null ? nativeLayout.padding.bottom : 5;
             Group = Root.gameObject.AddComponent<CanvasGroup>();
             first = Text("Attacker", 24); last = Text("Victim", 24);
-            distance = Text("Distance", 18); unknownWeapon = Text("UnknownWeapon", 24);
+            distance = Text("Distance", 16); unknownWeapon = Text("UnknownWeapon", 24);
             distance.alignment = unknownWeapon.alignment = TextAlignmentOptions.Center;
             // This short, measured caption must not disappear when TMP's line metrics
             // exceed a guessed font-size-based rectangle.
@@ -264,14 +265,14 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
             var b = Math.Min(nameLimit, (float)Math.Ceiling(lastSize.x) + 2);
             var firstHeight = (float)Math.Ceiling(firstSize.y) + 2;
             var lastHeight = (float)Math.Ceiling(lastSize.y) + 2;
-            var weaponHeight = 42 + (showDistance ? 2 + distanceHeight : 0);
+            var weaponHeight = WeaponSize + (showDistance ? DistanceGap + distanceHeight : 0);
             var contentHeight = Math.Max(weaponHeight, Math.Max(firstHeight, lastHeight));
             var weaponTop = paddingTop + (contentHeight - weaponHeight) / 2;
             var x = paddingLeft;
             Place(first.rectTransform, x, paddingTop + (contentHeight - firstHeight) / 2, a, firstHeight); x += a + 8;
-            Place(weapon.rectTransform, x + (weaponWidth - 42) / 2, weaponTop, 42, 42);
-            Place(unknownWeapon.rectTransform, x, weaponTop, weaponWidth, 42);
-            Place(distance.rectTransform, x, weaponTop + 44, weaponWidth, distanceHeight); x += weaponWidth + 8;
+            Place(weapon.rectTransform, x + (weaponWidth - WeaponSize) / 2, weaponTop, WeaponSize, WeaponSize);
+            Place(unknownWeapon.rectTransform, x, weaponTop, weaponWidth, WeaponSize);
+            Place(distance.rectTransform, x, weaponTop + WeaponSize + DistanceGap, weaponWidth, distanceHeight); x += weaponWidth + 8;
             if (showHeadshot) { Place(headshot.rectTransform, x, paddingTop + (contentHeight - 28) / 2, 28, 28); x += 36; }
             Place(last.rectTransform, x, paddingTop + (contentHeight - lastHeight) / 2, b, lastHeight);
             Root.sizeDelta = new Vector2(x + b + paddingRight, paddingTop + contentHeight + paddingBottom);

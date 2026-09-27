@@ -107,15 +107,15 @@ public sealed class NativePlayerKillFeedHudTests : IDisposable
         Assert.Equal(showDistance, distance.gameObject.activeSelf);
         if (showDistance)
         {
-            // Even the fixture's modest 1.2x line height exceeds the old 20-unit box.
-            Assert.True(distance.preferredHeight > 20);
+            // TMP line height exceeds font size, including for the compact caption.
+            Assert.True(distance.preferredHeight > distance.fontSize);
             Assert.True(distance.rectTransform.sizeDelta.y >= distance.preferredHeight);
             Assert.True(distance.rectTransform.sizeDelta.x >= distance.preferredWidth);
             Assert.Equal(TextOverflowModes.Overflow, distance.overflowMode);
             Assert.True(-distance.rectTransform.anchoredPosition.y > -weapon.anchoredPosition.y + weapon.sizeDelta.y);
             Assert.True(row.sizeDelta.y >= -distance.rectTransform.anchoredPosition.y + distance.rectTransform.sizeDelta.y + 5);
         }
-        else Assert.Equal(52, row.sizeDelta.y); // Only icon height and the native top/bottom padding.
+        else Assert.Equal(weapon.sizeDelta.y + 10, row.sizeDelta.y); // Only icon height and the native top/bottom padding.
     }
 
     [Fact]
