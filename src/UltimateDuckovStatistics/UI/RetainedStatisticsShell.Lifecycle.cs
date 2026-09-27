@@ -17,6 +17,8 @@ internal sealed partial class RetainedStatisticsShell
     private string? frameCreationError;
     private PanelOperationController? cachedOperations;
     private Action? changeHotkeyAction, cancelHotkeyAction;
+    internal Func<Core.Persistence.KillFeedSettings>? KillFeedSettingsProvider { get; set; }
+    internal Action<Core.Persistence.KillFeedSettings>? SaveKillFeedSettings { get; set; }
     private Func<bool>? copyExportAction, copyDataAction;
     private DiagnosticsPresentation? cachedDiagnostics;
     private (string Generation, string Id)? pendingRunRoute;

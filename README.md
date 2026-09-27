@@ -35,6 +35,8 @@ Version 1.4.0 adds a consistent [results-screen summary](docs/EXTRACTION_SUMMARY
 
 The [game-day HUD](docs/GAME_DAY_HUD.md) shows `Day N` / `Tag N` beneath the weather using the loaded game clock. It follows the native HUD through scene fades and does not depend on when UDS was installed or its statistics were reset. Disable Show Game Days to avoid a duplicate label.
 
+The optional [player kill feed](docs/PLAYER_KILL_FEED.md) shows confirmed player kills and deaths below the storm information, with weapon icons, known fatal distances and verified outgoing headshots. Configure it in **Diagnostics → Data & settings → Kill feed**. It defaults to six entries lasting ten seconds. Disable CS Like Kill Feed to avoid duplicate feeds; UDS does not change other mods' settings.
+
 ## Local data and current format
 
 The first public format baseline is `uds-profile-v1`, **schema 1**, with data below `%USERPROFILE%/AppData/LocalLow/TeamSoda/Duckov/UltimateDuckovStatistics/v1/`. This deliberately starts fresh from the schema-18 development/RC profiles; they are incompatible and are not converted. If left on disk, the mod archives them intact and creates fresh statistics. Older `0.x` data is not imported or deleted. Clean installation and valid schema-1 reinstallation are supported; no development-data migration code ships. Incompatible/future profiles remain protected. Schema revisions follow stored-format changes independently of release versions.

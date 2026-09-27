@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.UI.ProceduralImage;
+using UltimateDuckovStatistics.Core.Persistence;
 
 namespace UltimateDuckovStatistics.UI;
 
@@ -28,6 +29,8 @@ internal sealed partial class RetainedStatisticsShell
         private readonly PanelOperationController operations;
         private readonly Action changeHotkey, focusTabs;
         private readonly Func<bool> copyExportPath, copyDataPath;
+        private readonly Func<KillFeedSettings>? killFeedSettings;
+        private readonly Action<KillFeedSettings>? saveKillFeed;
         private readonly RectTransform copyFeedback;
         private readonly TextMeshProUGUI copyFeedbackText;
         private float copyFeedbackUntil;
@@ -59,9 +62,11 @@ internal sealed partial class RetainedStatisticsShell
         };
 
         public DiagnosticsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material,
-            PanelOperationController operations, Action changeHotkey, Func<bool> copyExportPath, Func<bool> copyDataPath, Action focusTabs)
+            PanelOperationController operations, Action changeHotkey, Func<bool> copyExportPath, Func<bool> copyDataPath, Action focusTabs,
+            Func<KillFeedSettings>? killFeedSettings = null, Action<KillFeedSettings>? saveKillFeed = null)
         {
             this.typography = typography; this.material = material; this.operations = operations;
+            this.killFeedSettings = killFeedSettings; this.saveKillFeed = saveKillFeed;
             shownOperationNotice = operations.LastNotice;
             this.changeHotkey = changeHotkey; this.copyExportPath = copyExportPath; this.copyDataPath = copyDataPath; this.focusTabs = focusTabs;
             root = Node(parent, "DiagnosticsContentView");
@@ -199,6 +204,48 @@ internal sealed partial class RetainedStatisticsShell
                 if (!operations.ModalVisible) Focus(id);
             }
         }
+        private float BuildKillFeedSettings(RectTransform parent, float y, float w)
+        {
+            if (killFeedSettings == null || saveKillFeed == null) return y;
+            y += Accordion(parent, "killfeed", UiText.Get("ui.killfeed_title"), "", 30, y, w - 60, 30, false) + 10;
+            if (!selection.Expanded("killfeed")) return y;
+            var value = killFeedSettings();
+            ToggleSetting("enabled", value.Enabled, v => v.Enabled = !v.Enabled);
+            Stepper("duration", value.DurationSeconds + " s", v => v.DurationSeconds--, v => v.DurationSeconds++);
+            Stepper("limit", value.MaximumEntries.ToString(System.Globalization.CultureInfo.CurrentCulture), v => v.MaximumEntries--, v => v.MaximumEntries++);
+            Stepper("scale", Math.Round(value.Scale * 100) + " %", v => v.Scale -= .1f, v => v.Scale += .1f);
+            Choice("side", UiText.Get(value.AlignRight ? "ui.killfeed_right" : "ui.killfeed_left"), v => v.AlignRight = !v.AlignRight);
+            Stepper("offset_x", value.OffsetX.ToString(System.Globalization.CultureInfo.CurrentCulture), v => v.OffsetX -= 5, v => v.OffsetX += 5);
+            Stepper("offset_y", value.OffsetY.ToString(System.Globalization.CultureInfo.CurrentCulture), v => v.OffsetY -= 5, v => v.OffsetY += 5);
+            ToggleSetting("distance", value.ShowDistance, v => v.ShowDistance = !v.ShowDistance);
+            ToggleSetting("headshots", value.ShowHeadshots, v => v.ShowHeadshots = !v.ShowHeadshots);
+            Button(parent, "killfeed:reset", UiText.Get("ui.killfeed_reset"), 40, y, w - 80, 50, Blue,
+                () => { saveKillFeed(new KillFeedSettings()); dirty = true; }, false, operations.CanStart, 24, true);
+            return y + 70;
+
+            void Save(Action<KillFeedSettings> change)
+            {
+                var changed = killFeedSettings() with { };
+                change(changed); saveKillFeed(changed); dirty = true;
+            }
+            void ToggleSetting(string key, bool enabled, Action<KillFeedSettings> change) =>
+                Choice(key, UiText.Get(enabled ? "ui.killfeed_on" : "ui.killfeed_off"), change);
+            void Choice(string key, string caption, Action<KillFeedSettings> change)
+            {
+                var h = Math.Max(50, Label(parent, "killfeed:" + key + ":caption", UiText.Get("ui.killfeed_" + key), 40, y + 8, w - 270, 25) + 16);
+                Button(parent, "killfeed:" + key, caption, w - 210, y, 170, h, Blue, () => Save(change), false, operations.CanStart, 24, true);
+                y += h + 10;
+            }
+            void Stepper(string key, string caption, Action<KillFeedSettings> minus, Action<KillFeedSettings> plus)
+            {
+                var h = Math.Max(50, Label(parent, "killfeed:" + key + ":caption", UiText.Get("ui.killfeed_" + key), 40, y + 8, w - 310, 25) + 16);
+                Button(parent, "killfeed:" + key + ":minus", "−", w - 255, y, 60, h, Blue, () => Save(minus), false, operations.CanStart, 26, true);
+                Label(parent, "killfeed:" + key + ":value", caption, w - 195, y + 8, 95, 24, centered: true);
+                Button(parent, "killfeed:" + key + ":plus", "+", w - 100, y, 60, h, Blue, () => Save(plus), false, operations.CanStart, 26, true);
+                y += h + 10;
+            }
+        }
+
         private float BuildLeft(float w)
         {
             var snapshot = selection.Snapshot!;
@@ -256,6 +303,7 @@ internal sealed partial class RetainedStatisticsShell
                     Button(settings, "action:copy", copy, 30, y, bw, bh, Blue, () => ShowCopyFeedback(copyExportPath, "action:copy"), false, operations.CanStart, 23, true, 23); y += bh + 10;
                 }
             }
+            y = BuildKillFeedSettings(settings, y, w);
             Place(settings, 0, 0, w, y + 10);
             var top = y + 50;
             var issues = Panel(left.Content, "issues", 20);

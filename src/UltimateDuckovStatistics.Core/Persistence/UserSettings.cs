@@ -11,4 +11,7 @@ public sealed class UserSettings
 
     [DataMember(Order = 2)]
     public string PanelHotkey { get; set; } = DefaultPanelHotkey;
+
+    [DataMember(Order = 3, EmitDefaultValue = false)]
+    public KillFeedSettings? KillFeed { get; set; }
 }

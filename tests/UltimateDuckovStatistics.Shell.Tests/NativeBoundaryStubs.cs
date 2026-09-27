@@ -119,6 +119,7 @@ namespace UltimateDuckovStatistics.UI
         private sealed class EquipmentView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action<string, string> route, Action fallback) : BoundaryView(parent);
         private sealed class EconomyView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action<string, string> route, Action fallback) : BoundaryView(parent);
         private sealed class CraftingView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action fallback) : BoundaryView(parent);
-        private sealed class DiagnosticsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, PanelOperationController operations, Action hotkey, Func<bool> copyExport, Func<bool> copyData, Action fallback) : BoundaryView(parent);
+        private sealed class DiagnosticsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, PanelOperationController operations, Action hotkey, Func<bool> copyExport, Func<bool> copyData, Action fallback,
+            Func<Core.Persistence.KillFeedSettings>? killFeedSettings = null, Action<Core.Persistence.KillFeedSettings>? saveKillFeed = null) : BoundaryView(parent);
     }
 }

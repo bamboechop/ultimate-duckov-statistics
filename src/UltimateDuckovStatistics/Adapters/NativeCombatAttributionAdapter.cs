@@ -24,6 +24,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private readonly Func<string?> mapIdProvider;
     private readonly Func<string?> segmentIdProvider;
     private readonly Func<CombatRecorded, bool> combatHandler;
+    private readonly Action<CombatRecorded, double?>? killFeedObserver;
+    private bool killFeedFailed;
     private readonly Func<EquipmentEventAssociation> equipmentAssociationProvider;
     private readonly NativeBuffApplicationObservationBoundary buffApplicationObservationBoundary;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
@@ -62,12 +64,14 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         NativeBuffApplicationObservationBoundary buffApplicationObservationBoundary,
         Func<EquipmentEventAssociation>? equipmentAssociationProvider = null,
         Func<string?>? segmentIdProvider = null,
-        Func<MethodInfo?, NativeFirstPersonHeadshotCompatibility>? firstPersonCompatibilityFactory = null)
+        Func<MethodInfo?, NativeFirstPersonHeadshotCompatibility>? firstPersonCompatibilityFactory = null,
+        Action<CombatRecorded, double?>? killFeedObserver = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.runIdProvider = runIdProvider ?? throw new ArgumentNullException(nameof(runIdProvider));
         this.mapIdProvider = mapIdProvider ?? throw new ArgumentNullException(nameof(mapIdProvider));
         this.combatHandler = combatHandler ?? throw new ArgumentNullException(nameof(combatHandler));
+        this.killFeedObserver = killFeedObserver;
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
         this.buffApplicationObservationBoundary = buffApplicationObservationBoundary
@@ -679,7 +683,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             HeadshotFinalBlows = headshotFinalBlow ? 1 : 0,
             IsFinalBlow = fatal,
             IsDamageOverTime = scope?.IsDamageOverTime == true
-        }, allowTerminalPause: targetIsMain && fatal);
+        }, allowTerminalPause: targetIsMain && fatal, fatalHealth: fatal ? health : null);
     }
 
     public void RecordPlayerDeath(DamageInfo info)
@@ -711,7 +715,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
                 scope?.AmmunitionTypeId ?? -1,
                 scope?.AmmunitionDisplayName);
         }
-        Emit(value, allowTerminalPause: true);
+        Emit(value, allowTerminalPause: true, fatalHealth: CharacterMainControl.Main != null ? CharacterMainControl.Main.Health : null);
     }
 
     public bool TryCleanup()
@@ -837,7 +841,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         return value;
     }
 
-    private bool Emit(CombatRecorded value, bool allowTerminalPause = false)
+    private bool Emit(CombatRecorded value, bool allowTerminalPause = false, Health? fatalHealth = null)
     {
         if (allowTerminalPause
             && value.GameplayContext == GameplayContext.Paused
@@ -854,6 +858,24 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             || SceneLoader.IsSceneLoading || LevelManager.LevelInitializing
             || (MultiSceneCore.Instance != null && MultiSceneCore.Instance.IsLoading)
             || (GameManager.Paused && !allowTerminalPause)) return false;
+        // Copy transient evidence before the Hurt frame and native actors disappear.
+        // A HUD failure must never abort the statistics callback or native damage.
+        if (!killFeedFailed && killFeedObserver != null && (value.KillsByYou > 0 || value.PlayerDeaths > 0))
+        {
+            try
+            {
+                var distance = fatalHealth != null
+                    ? Encounters.NativeEncounterCombatObserver.FatalDistance(fatalHealth, value.PlayerDeaths > 0, value.MapId)
+                    : null;
+                killFeedObserver(value, distance);
+            }
+            catch (Exception exception)
+            {
+                killFeedFailed = true;
+                try { diagnosticHandler($"Kill feed unavailable: {exception.GetType().Name}: {exception.Message}"); }
+                catch { /* Diagnostics must not interfere with combat either. */ }
+            }
+        }
         return combatHandler(value);
     }
 

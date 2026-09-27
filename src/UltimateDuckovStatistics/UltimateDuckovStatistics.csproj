@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <Reference Include="UnityEngine.ImageConversionModule" HintPath="$(DuckovManagedPath)\UnityEngine.ImageConversionModule.dll" Private="false" />
+    <Reference Include="com.rlabrecque.steamworks.net" HintPath="$(DuckovManagedPath)\com.rlabrecque.steamworks.net.dll" Private="false" />
     <Reference Include="Unity.Collections" HintPath="$(DuckovManagedPath)\Unity.Collections.dll" Private="false" />
   </ItemGroup>
 

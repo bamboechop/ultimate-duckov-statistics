@@ -85,6 +85,19 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
 
     internal static void ObserveHealthBegin(Health health, DamageInfo info) => HurtPrefix(health, info, out _);
 
+    internal static double? FatalDistance(Health health, bool incoming, string map)
+    {
+        var frame = FindFrame(health);
+        if (active == null || !active.enabled || frame?.Capture != true || frame.Epoch != active.epoch
+            || frame.Candidate == null) return null;
+        var candidate = frame.Candidate;
+        return Core.Tracking.PlayerKillFeed.Distance(Copy(candidate.PlayerPosition),
+            Copy(incoming ? candidate.SourcePosition : candidate.TargetPosition), map);
+
+        static Core.Encounters.EncounterPosition? Copy(PositionSnapshot position) => !position.Available ? null : new()
+        { X = position.X, Y = position.Y, Z = position.Z, MapId = position.LogicalScene };
+    }
+
     // The aggregate adapter classifies the accepted transition from the projectile's
     // native launch evidence or verified FPC target-local evidence and deduplicates
     // it. A generic native critical hit is not independent headshot evidence.
