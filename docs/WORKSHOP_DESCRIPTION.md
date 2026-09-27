@@ -25,7 +25,7 @@ The preview is tracked at [mod/preview.png](../mod/preview.png), with the short 
 [olist]
 [*]Subscribe to UDS and the required [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839]HarmonyLib[/url] dependency.
 [*]Enable both in the game's Mods menu and restart if prompted. Keep only one active copy of UDS if you previously installed it manually.
-[*]Outside a raid, press [b]F8[/b] or open Statistics from the main menu or base pause menu. F8 at base pauses gameplay while statistics are open. You can change the shortcut in Diagnostics.
+[*]Outside a raid, use the configured shortcut or open Statistics from the main menu or base pause menu. New settings default to [b]Ctrl+Alt+S[/b]; existing bindings such as F8 are kept. Opening by shortcut at base pauses gameplay while statistics are open. You can choose a single key or a Ctrl/Alt/Shift combination in Diagnostics. Use left Alt for Ctrl+Alt combinations; AltGr stays available for typing.
 [/olist]
 
 Tracking begins while UDS is enabled; earlier gameplay cannot be reconstructed. Statistics are stored separately for each save.

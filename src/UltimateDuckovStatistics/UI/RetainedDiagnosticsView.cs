@@ -215,10 +215,13 @@ internal sealed partial class RetainedStatisticsShell
             y += Math.Max(dataHeight, copyDataHeight) + 10;
             var hotkeyLabel = UiText.Get("ui.diag_hotkey_hint");
             var chipWidth = Math.Min(w - 60, Math.Max(68, measure.Width(snapshot.Hotkey, 28) + 40));
+            var stackHotkey = w - 80 - chipWidth < Math.Min(220, measure.Width(hotkeyLabel, 30));
             var labelWidth = Math.Max(1, w - 80 - chipWidth);
+            if (stackHotkey)
+                y += Label(settings, "hotkey:label", hotkeyLabel, 30, y, w - 60, 30) + 10;
             var hh = Math.Max(measure.Height(snapshot.Hotkey, chipWidth - 40, 28) + 16,
-                Math.Max(50, Label(settings, "hotkey:label", hotkeyLabel, 30, y + 8, labelWidth, 30) + 16));
-            Button(settings, "action:hotkey", snapshot.Hotkey, w - 30 - chipWidth, y, chipWidth, hh, Blue,
+                stackHotkey ? 50 : Math.Max(50, Label(settings, "hotkey:label", hotkeyLabel, 30, y + 8, labelWidth, 30) + 16));
+            Button(settings, "action:hotkey", snapshot.Hotkey, stackHotkey ? 30 : w - 30 - chipWidth, y, chipWidth, hh, Blue,
                 changeHotkey, false, operations.CanStart, size: 28, centered: true, radius: 25);
             y += hh + 28;
             var exportText = UiText.Get("ui.diag_export"); var resetText = UiText.Get("ui.diag_reset");

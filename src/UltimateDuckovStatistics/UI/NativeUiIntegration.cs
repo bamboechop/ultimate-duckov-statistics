@@ -63,7 +63,7 @@ internal sealed class NativeUiIntegration : IDisposable
             if (BasePauseMenuState == NativeMenuIntegrationState.NotObserved)
                 BasePauseMenuState = NativeMenuIntegrationState.Unavailable;
             coordinator.ReportUiDiagnostic(
-                $"M17 native menu/localization integration degraded; F8 remains available: {exception.GetType().Name}: {exception.Message}",
+                $"M17 native menu/localization integration degraded; the configured panel shortcut remains available: {exception.GetType().Name}: {exception.Message}",
                 "Warning");
         }
     }

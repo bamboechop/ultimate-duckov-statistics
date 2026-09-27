@@ -311,9 +311,9 @@ public sealed class RetainedDiagnosticsTests
             : state == (int)NativeMenuIntegrationState.AttachedUnverified ? "ui.attached_unverified" : "ui.unavailable"),
             menu.ExtraRows[mainMenu ? 0 : 1].Value);
         Assert.Equal(UiText.Get("ui.diag_tracking_working"), p.BannerTitle);
-        Assert.Equal(DiagnosticsHealth.Working, Assert.Single(menu.ExtraRows, r => r.Label.Contains("F8", StringComparison.Ordinal)).Health);
+        Assert.Equal(DiagnosticsHealth.Working, Assert.Single(menu.ExtraRows, r => r.Label.Contains(runtime.Hotkey, StringComparison.Ordinal)).Health);
         Assert.Equal(issueExpected ? 1 : 0, p.Issues.Count);
-        if (issueExpected) { Assert.Contains("F8", p.BannerDetail, StringComparison.Ordinal); Assert.Equal("Warning", p.Issues[0].Severity); }
+        if (issueExpected) { Assert.Contains(runtime.Hotkey, p.BannerDetail, StringComparison.Ordinal); Assert.Equal("Warning", p.Issues[0].Severity); }
     }
 
     [Fact]
@@ -380,7 +380,7 @@ public sealed class RetainedDiagnosticsTests
     [InlineData("User reset failed with the original generation preserved: archive denied", "existing UDS profile remains active")]
     [InlineData("M17 UI clipboard unavailable", "export completed")]
     [InlineData("Profile flush failed: disk full", "Pending data is retained")]
-    [InlineData("M17 native main-menu integration unavailable", "F8")]
+    [InlineData("M17 native main-menu integration unavailable", UserSettings.DefaultPanelHotkey)]
     public void OperationFailuresGiveBoundarySpecificRecoveryInsteadOfFalseSuccess(string message, string guidance)
     {
         var runtime = Runtime(); runtime.Entries = new[] { Entry(1, "Error", message) };

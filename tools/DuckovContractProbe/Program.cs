@@ -579,6 +579,7 @@ try
 
     using (var unityCore = new AssemblyMetadata(Path.Combine(managedRoot, "UnityEngine.CoreModule.dll")))
     {
+        unityCore.RequireProperty("UnityEngine", "Application", "isFocused", "System.Boolean", mustBePublic: true);
         unityCore.RequireMethod("UnityEngine", "Object", "Instantiate", 3,
             mustBePublic: true, mustBeStatic: true, returnTypeFragment: "UnityEngine.Object",
             parameterTypeFragments: ["UnityEngine.Object", "UnityEngine.Vector3", "UnityEngine.Quaternion"]);
@@ -586,6 +587,7 @@ try
 
     using (var ui = new AssemblyMetadata(unityUiPath))
     {
+        ui.RequireProperty("UnityEngine.UI", "InputField", "isFocused", "System.Boolean", mustBePublic: true);
         ui.RequireType("UnityEngine.UI", "RectMask2D");
         ui.RequireProperty("UnityEngine.UI", "Mask", "showMaskGraphic", "System.Boolean", mustBePublic: true);
         ui.RequireProperty("UnityEngine.UI", "ScrollRect", "content", "UnityEngine.RectTransform", mustBePublic: true);
@@ -601,6 +603,11 @@ try
             parameterTypeFragments: ["UnityEngine.EventSystems.BaseEventData"]);
         ui.RequireMethod("UnityEngine.EventSystems", "EventSystem", "SetSelectedGameObject", 1, mustBePublic: true,
             parameterTypeFragments: ["UnityEngine.GameObject"]);
+    }
+
+    using (var textMeshPro = new AssemblyMetadata(textMeshProPath))
+    {
+        textMeshPro.RequireProperty("TMPro", "TMP_InputField", "isFocused", "System.Boolean", mustBePublic: true);
     }
 
     using (var plugins = new AssemblyMetadata(pluginsPath))

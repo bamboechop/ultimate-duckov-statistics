@@ -14,7 +14,7 @@ internal sealed class DiagnosticsRuntimeSnapshot
 {
     public string GenerationId { get; set; } = "";
     public string DataRoot { get; set; } = "";
-    public string Hotkey { get; set; } = "F8";
+    public string Hotkey { get; set; } = UserSettings.DefaultPanelHotkey;
     public string GameVersion { get; set; } = "";
     public bool? HarmonyLoaded { get; set; }
     public string OpenDetail { get; set; } = "";
