@@ -157,7 +157,8 @@ public sealed class ExtractionSummaryUiTests : IDisposable
             var row = block.transform.Find("Metrics")!.gameObject;
             var footer = block.transform.GetChild(1).gameObject;
             var blockBounds = after[block];
-            Assert.InRange(blockBounds.Height, 144, 150);
+            Assert.InRange(blockBounds.Height, 168, 174);
+            Assert.InRange(after[row].Top - blockBounds.Top, 24, 28);
             Assert.InRange(after[footer].Top - after[row].Bottom, 8, 9);
             Assert.InRange(after[footer].Bottom, blockBounds.Bottom - 4, blockBounds.Bottom);
             Assert.Equal(before[nativeTitle].Top - blockBounds.Height / 2, after[nativeTitle].Top, 2);
