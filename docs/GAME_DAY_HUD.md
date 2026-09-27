@@ -1,6 +1,6 @@
 # Game-day HUD
 
-UDS 1.4.0 adds a non-interactive day label under the native top-left weather label: `Day 30` in English and `Tag 30` in German. Other languages use the existing English fallback. The label uses the native text template, weather font/material/color and 24-point size. It follows the native HUD's visibility and layout; it does not change the weather, clock, storm display or compass.
+Since 1.4.0, UDS includes a non-interactive day label under the native top-left weather label: `Day 30` in English and `Tag 30` in German. Other languages use the existing English fallback. The label uses the native text template, weather font/material/color and 24-point size. It follows the native HUD's visibility and layout; it does not change the weather, clock, storm display or compass.
 
 ## Source and ownership
 

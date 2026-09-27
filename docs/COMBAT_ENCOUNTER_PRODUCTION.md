@@ -1,6 +1,6 @@
 # Encounter history production integration
 
-The ordinary mod now captures encounter history automatically and exposes **Details | Map & Kills** in Runs. No encounter build flag or recording hotkey is needed. This shipped in [v1.1.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.1.0) and remains included in v1.4.0; the historical GitHub 1.0.0 archive is unchanged. The user's accepted design includes overlapping markers when encounters occur at the same position. Do not spread or cluster them artificially.
+The ordinary mod now captures encounter history automatically and exposes **Details | Map & Kills** in Runs. No encounter build flag or recording hotkey is needed. This shipped in [v1.1.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.1.0) and remains included in v1.5.0; the historical GitHub 1.0.0 archive is unchanged. The user's accepted design includes overlapping markers when encounters occur at the same position. Do not spread or cluster them artificially.
 
 ## Runtime and diagnostic separation
 

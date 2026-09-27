@@ -1,6 +1,6 @@
 # Single-database persistence
 
-Following the 2026-09-13 user decision, current source persists each UDS generation in one `profile.sqlite`. This supersedes the continuously updated recovery copy used during the initial SQLite qualification. This policy shipped in the 1.1.x releases and remains included in v1.4.0; the historical GitHub v1.0.0 archive remains unchanged.
+Following the 2026-09-13 user decision, current source persists each UDS generation in one `profile.sqlite`. This supersedes the continuously updated recovery copy used during the initial SQLite qualification. This policy shipped in the 1.1.x releases and remains included in v1.5.0; the historical GitHub v1.0.0 archive remains unchanged.
 
 The native factory now uses `SqliteProfileStorage` directly. Changed records, generation metadata and the receipt commit together. WAL and FULL synchronization remain enabled; interrupted writes are handled by SQLite transaction recovery. Failed commits retain their unacknowledged changes for bounded retry. Completed-run reads, active-run/session recovery, generation isolation, detached export snapshots and reset archive/rollback handling retain their existing contracts. Passive WAL maintenance still runs separately from the save queue. The first export establishes the live WAL writer before pinning its read snapshot, preventing a cold export from blocking a subsequent journal-mode transition.
 
