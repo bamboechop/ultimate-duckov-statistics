@@ -32,6 +32,14 @@ UDS owns a compact 150-unit block, containing an 84-unit metric row and 52-unit 
 
 The focused layout regression uses the installed UnityEngine.UI layout-property priority and vertical negotiation rules with the serialized native preferences. It reproduces the previous viewport-filling summary before the correction and checks measured block bounds, footer adjacency, symmetric native margins, native child dimensions/preferences, and restoration after close at several viewport heights. It runs against the production-created hierarchy but is a narrow managed layout model, not the Unity engine or a glyph renderer; rendered English/German extraction/death acceptance remains required.
 
+## Recording failures and acceptance
+
+The user accepted the corrected extraction layout on September 27, 2026. That gameplay test then exposed a route-publication failure: the native JSON reader changed a recorded timestamp during a read, so immutable-prefix validation rejected the next route update. This blocked run terminalization and left the extraction snapshot unavailable; the Runs list still showed the previous completed raid. FPC initialization in that session reported all 11 combat hooks available.
+
+Diagnostics must distinguish healthy capture contracts from successful publication. A rejected encounter record keeps current profile persistence in an error state until that exact generation/run/kind/record is accepted; another successful record or snapshot cannot clear it. Storage errors now also affect the overall banner. Normal deferred writes remain pending without claiming a failure, and old incomplete raids do not imply that today's combat hooks are unavailable. Regression coverage exercises actual repository rejection, an unrelated successful write, exact retry, repeated throttled errors and retained-panel refresh.
+
+Rendered German/death layout and a fresh successful raid's time, kills and value remain native acceptance checks after the recording correction.
+
 ## Other mods and native qualification
 
 UDS does not disable or alter other mods. Disable **Match Total & Duration & Stash Value** and **Show kills on extract** for the unified-layout smoke test, or their own independent overlays will remain visible. A full replacement results screen supplied by another mod is outside this native `ClosureView` integration.

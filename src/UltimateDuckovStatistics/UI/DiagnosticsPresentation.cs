@@ -195,7 +195,8 @@ internal static class DiagnosticsPresentationFactory
             }));
         systems = systems.OrderBy(s => Array.IndexOf(DiagnosticsCapabilityCatalog.GroupOrder.ToArray(), s.Id)).ToList();
         var tracking = systems.Where(s => s.Id != "menu" && s.Id != "storage").ToArray();
-        var health = tracking.Any(s => s.Health == DiagnosticsHealth.Error) ? DiagnosticsHealth.Error
+        var storageFailed = systems.Any(s => s.Id == "storage" && s.Health == DiagnosticsHealth.Error);
+        var health = storageFailed || tracking.Any(s => s.Health == DiagnosticsHealth.Error) ? DiagnosticsHealth.Error
             : tracking.Any(s => s.Health == DiagnosticsHealth.Limited) ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
         var bannerTitle = t(health == DiagnosticsHealth.Error ? "ui.diag_tracking_error" : health == DiagnosticsHealth.Limited ? "ui.diag_tracking_limited"
             : menusVerified ? "ui.diag_all_working" : "ui.diag_tracking_working");
@@ -209,6 +210,8 @@ internal static class DiagnosticsPresentationFactory
             bannerTitle = t("ui.diag_harmony_banner");
             bannerDetail = t("ui.diag_harmony_recovery") + "\n" + t("ui.diag_tracking_error_detail");
         }
+
+        if (storageFailed) bannerDetail += "\n" + t("ui.diag_storage_issue_detail");
 
         var issues = new List<DiagnosticsIssue>();
         foreach (var system in systems.Where(s => s.Id != "menu" && s.Capabilities.Any(c => c.Health == DiagnosticsHealth.Error)))
@@ -269,7 +272,9 @@ internal static class DiagnosticsPresentationFactory
         : utc.ToLocalTime().ToString("yyyy-MM-dd - HH:mm:ss", CultureInfo.InvariantCulture);
     public static bool IsIssue(string severity) => severity.Equals("Warning", StringComparison.OrdinalIgnoreCase) || severity.Equals("Error", StringComparison.OrdinalIgnoreCase);
     private static bool IsPersistenceFailure(string message) => message.StartsWith("Failed to persist", StringComparison.Ordinal)
-        || message.StartsWith("Profile flush failed", StringComparison.Ordinal);
+        || message.StartsWith("Profile flush failed", StringComparison.Ordinal)
+        || message.StartsWith("Encounter journal publication remains pending", StringComparison.Ordinal)
+        || message.StartsWith("Native-save profile boundary failed", StringComparison.Ordinal);
     // A pending transition invalidates this presentation. Once a usable generation
     // is published again, its old deferral messages belong only in the technical log.
     private static bool IsDeferredResetMessage(string message) => message.StartsWith("M17 UI reset awaiting completion", StringComparison.Ordinal)

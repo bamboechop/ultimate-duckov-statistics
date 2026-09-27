@@ -88,7 +88,7 @@ internal static class DiagnosticsText
         ["ui.diag_clipboard_failed"] = "Export location could not be copied",
         ["ui.diag_clipboard_failed_detail"] = "The export completed, but copying its location to the clipboard failed. The export location remains visible in Data & settings.",
         ["ui.diag_storage_issue"] = "Profile storage needs attention",
-        ["ui.diag_storage_issue_detail"] = "A statistics write failed. Pending data is retained for retry. Avoid resetting the profile; check available disk space and Player.log.",
+        ["ui.diag_storage_issue_detail"] = "UDS could not finish saving recorded statistics. Pending data is retained for retry; recent runs may not appear until this succeeds. See Recent issues and Player.log.",
         ["ui.diag_recent_warning"] = "UDS needs attention",
         ["ui.diag_reset_title"] = "Reset UDS profile?",
         ["ui.diag_reset_body"] = "This will archive the statistics currently associated with {0} and start a new, empty UDS profile.\nYour Escape from Duckov save data will not be changed. The previous UDS generation remains archived read-only in the UDS data folder.",

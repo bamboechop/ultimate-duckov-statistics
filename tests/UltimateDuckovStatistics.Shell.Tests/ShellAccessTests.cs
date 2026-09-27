@@ -482,6 +482,7 @@ public sealed partial class ShellAccessTests : IDisposable
         coordinator.HasProfilePersistenceFailure = true;
         Tick(panel);
         Assert.Equal("Error", Writes());
+        Assert.Contains(UiText.Get("ui.diag_storage_issue_detail"), Snapshot().BannerDetail, StringComparison.Ordinal);
         coordinator.HasProfilePersistenceFailure = false;
         Tick(panel);
         Assert.Equal("Pending", Writes());

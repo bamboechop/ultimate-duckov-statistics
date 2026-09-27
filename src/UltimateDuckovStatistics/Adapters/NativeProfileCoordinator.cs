@@ -34,6 +34,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
     private Func<bool>? craftingProfileTransitionBoundaryFlusher;
     private bool subscribed;
     private bool nativeSaveBoundaryActive;
+    private (string Generation, string Run, UltimateDuckovStatistics.Core.Encounters.EncounterRecordKind Kind, string Record)? failedEncounterPublication;
     private double nextStorageMaintenance;
     private double nextStorageOpportunity;
     private System.Threading.Tasks.Task<ProfileMaintenanceResult>? storageMaintenance;
@@ -162,7 +163,8 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
 
     public ProfileSaveReceipt? LastSaveReceipt => repository?.LastSaveReceipt;
 
-    public bool HasProfilePersistenceFailure => profileWriter.HasFailure;
+    public bool HasProfilePersistenceFailure => profileWriter.HasFailure
+        || failedEncounterPublication?.Generation == CurrentGenerationId;
 
     public long CompletedUserResetVersion { get; private set; }
 
@@ -554,11 +556,15 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         {
             if (repository == null) return false;
             repository.RecordEncounterDeferred(generation, record);
+            // A successful unrelated snapshot or record cannot accept the rejected queue head.
+            if (failedEncounterPublication == (generation, record.RunId, record.Kind, record.Id))
+                failedEncounterPublication = null;
             profileWriter.MarkDirty();
             return true;
         }
         catch (Exception exception)
         {
+            failedEncounterPublication = (generation, record.RunId, record.Kind, record.Id);
             ReportPersistenceFailure(exception, "Encounter journal publication remains pending");
             return false;
         }

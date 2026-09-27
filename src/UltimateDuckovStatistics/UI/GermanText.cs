@@ -639,7 +639,7 @@ internal static class GermanText
         ["ui.diag_clipboard_failed"] = "Exportpfad konnte nicht kopiert werden",
         ["ui.diag_clipboard_failed_detail"] = "Der Export wurde abgeschlossen, aber sein Pfad konnte nicht in die Zwischenablage kopiert werden. Der Exportpfad bleibt unter Daten und Einstellungen sichtbar.",
         ["ui.diag_storage_issue"] = "Profilspeicher benötigt Aufmerksamkeit",
-        ["ui.diag_storage_issue_detail"] = "Eine Statistik-Speicherung ist fehlgeschlagen. Ausstehende Daten bleiben für einen erneuten Versuch erhalten. Setze das Profil nicht zurück; prüfe den verfügbaren Speicherplatz und Player.log.",
+        ["ui.diag_storage_issue_detail"] = "UDS konnte die aufgezeichneten Statistiken nicht vollständig speichern. Ausstehende Daten bleiben für einen erneuten Versuch erhalten; neueste Raids werden möglicherweise erst danach angezeigt. Siehe Letzte Probleme und Player.log.",
         ["ui.diag_recent_warning"] = "UDS benötigt Aufmerksamkeit",
         ["ui.diag_reset_title"] = "UDS-Profil zurücksetzen?",
         ["ui.diag_reset_body"] = "Die derzeit mit {0} verbundenen Statistiken werden archiviert und ein neues, leeres UDS-Profil wird gestartet.\nDeine Escape-from-Duckov-Speicherdaten werden nicht geändert. Die vorherige UDS-Generation bleibt im UDS-Datenordner schreibgeschützt archiviert.",
