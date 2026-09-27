@@ -113,6 +113,29 @@ public sealed class PlayerKillFeedTests
     }
 
     [Fact]
+    public void DistanceRejectsEitherActorOnAnotherMap()
+    {
+        var player = new EncounterPosition { X = 0, Z = 0, MapId = "m" };
+        var enemy = new EncounterPosition { X = 3, Z = 4, MapId = "other" };
+        Assert.Null(PlayerKillFeed.Distance(player, enemy, "m"));
+        Assert.Null(PlayerKillFeed.Distance(enemy, player, "m"));
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData(" ", false)]
+    [InlineData(null, true)]
+    [InlineData("", true)]
+    [InlineData(" ", true)]
+    public void DistanceRequiresKnownMapForBothActors(string? missingMap, bool playerMapMissing)
+    {
+        var player = new EncounterPosition { X = 0, Z = 0, MapId = playerMapMissing ? missingMap : "m" };
+        var enemy = new EncounterPosition { X = 3, Z = 4, MapId = playerMapMissing ? "m" : missingMap };
+        Assert.Null(PlayerKillFeed.Distance(player, enemy, "m"));
+    }
+
+    [Fact]
     public void ExistingSettingsKeepHotkeyAndNewSettingsRoundTripAndNormalize()
     {
         var serializer = new DataContractJsonSerializer(typeof(UserSettings));

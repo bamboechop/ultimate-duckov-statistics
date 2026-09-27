@@ -71,5 +71,7 @@ public sealed class PlayerKillFeed
         (float)Math.Clamp(Math.Min((now - entry.CreatedAt) / .12, seconds - (now - entry.CreatedAt)), 0, 1);
 
     public static double? Distance(EncounterPosition? player, EncounterPosition? other, string map) =>
-        KillDistanceHighlights.TryDistance(player, other, map, out var meters) ? meters : null;
+        // Live HUD positions need their own map evidence; no stored visit supplies it.
+        !string.IsNullOrWhiteSpace(player?.MapId) && !string.IsNullOrWhiteSpace(other?.MapId)
+        && KillDistanceHighlights.TryDistance(player, other, map, out var meters) ? meters : null;
 }

@@ -1,5 +1,7 @@
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Tracking;
 using UltimateDuckovStatistics.Encounters;
 using UnityEngine;
 
@@ -26,6 +28,50 @@ public sealed partial class NativeCombatDegradationTests
         Assert.Equal(5, result.Distance); Assert.Equal(1, result.Event.KillsByYou);
         Assert.Equal(20, Assert.Single(events).ActualDamageDealt);
         Assert.Null(NativeEncounterCombatObserver.FatalDistance(enemy, false, mapId));
+    }
+
+    [Fact]
+    public void MissingTargetMapKeepsConfirmedKillWithoutFeedDistance()
+    {
+        var sink = new CombatSink(); sink.Context.MapId = mapId = "test-map";
+        using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
+        var feed = new PlayerKillFeed();
+        killFeedObservation = (value, distance) => feed.Add(value, distance, 0, new KillFeedSettings());
+        player.transform.position = new Vector3(0, 0, 0);
+        var enemy = new Health { CurrentHealth = 20, team = Teams.enemy, Character = new() { RelatedScene = -1 } };
+        enemy.Character.transform.position = new Vector3(3, 0, 4);
+
+        FinishFatalOrderHit(enemy, BeginFatalOrderHit(enemy, 0));
+
+        var entry = Assert.Single(feed.Entries);
+        Assert.False(entry.PlayerDied); Assert.Null(entry.Meters);
+        Assert.Equal(1, Assert.Single(events).KillsByYou);
+        Assert.Equal(20, events[0].ActualDamageDealt);
+    }
+
+    [Fact]
+    public void MissingKillerMapKeepsPlayerDeathWithoutFeedDistance()
+    {
+        var sink = new CombatSink(); sink.Context.MapId = mapId = "test-map";
+        using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
+        var feed = new PlayerKillFeed();
+        killFeedObservation = (value, distance) => feed.Add(value, distance, 0, new KillFeedSettings());
+        var health = player.Health;
+        health.IsMainCharacterHealth = true; health.Character = player; health.team = Teams.player; health.CurrentHealth = 20;
+        player.transform.position = new Vector3(0, 0, 0);
+        var enemy = new CharacterMainControl { RelatedScene = -1 };
+        enemy.transform.position = new Vector3(0, 30, 12);
+        var info = new DamageInfo { fromCharacter = enemy, fromWeaponItemID = 67, damageValue = 20 };
+        object?[] hurt = [health, info, null];
+        CombatHarmonyCallbacks.HealthPrefixMethod.Invoke(null, hurt);
+        NativeEncounterCombatObserver.AssignHealth(health, 0); health.IsDead = true;
+        adapter.RecordPlayerDeath(info);
+        FinishFatalOrderHit(health, hurt[2]);
+
+        var entry = Assert.Single(feed.Entries);
+        Assert.True(entry.PlayerDied); Assert.Null(entry.Meters);
+        Assert.Equal(1, events.Sum(value => value.PlayerDeaths));
+        Assert.Equal(20, events.Sum(value => value.ActualDamageReceived));
     }
 
     [Fact]

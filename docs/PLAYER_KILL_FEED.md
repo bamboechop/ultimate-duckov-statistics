@@ -23,7 +23,7 @@ Settings share UDS's existing `settings.json`; saving them preserves the configu
 
 The existing combat adapter publishes an optional transient notification after validating raid context. Supported player final blows and player deaths enter a bounded six-row queue; a bounded recent-ID window rejects repeated notifications. Generic critical hits are not headshots. Incoming headshot information is not independently proven and is never shown.
 
-Distance is horizontal player-to-other-actor separation at the fatal health assignment, before corpse cleanup. It uses the same map and finite-position rules as Map & Kills and Overview distance highlights. For delayed damage, this is separation at death, not projectile travel or the firing position. Missing, invalid or cross-map evidence omits the distance. The optional encounter observer supplies those snapshots; losing it does not suppress an independently confirmed feed entry.
+Distance is horizontal player-to-other-actor separation at the fatal health assignment, before corpse cleanup. It uses the same horizontal calculation and finite-coordinate checks as Map & Kills and Overview distance highlights. Both live position snapshots must explicitly identify the same map as the combat event; a missing map ID is never inferred from coordinates. For delayed damage, this is separation at death, not projectile travel or the firing position. Missing, invalid or cross-map evidence omits only the distance. The optional encounter observer supplies those snapshots; losing it does not suppress an independently confirmed feed entry.
 
 Callbacks only copy data. Native text, Steam-name lookup and icon generation happen in the HUD tick, outside damage callbacks. A failed feed callback cannot abort statistics recording. The feed does not read historical runs, write encounter history or change a Duckov save. Existing adapter trust checks remain in force; this adds no Harmony patches or third-party dependency. The installed Steamworks assembly is referenced but not shipped.
 
@@ -42,6 +42,8 @@ The subsequent row-layout correction passed 211 Release shell tests and a zero-w
 The silhouette-sizing update passed 216 Release shell tests and a zero-warning native Release build. Added checks cover transparent-margin trimming without dropping faint edges, empty/single-pixel bounds, and wider weapons with preserved proportions, centered distance captions and unchanged row height.
 
 On 2026-09-27, the user accepted the final in-game layout and confirmed the planned gameplay checks below. Screenshots show pistol/rifle sizing, distances, headshot and body-shot entries, a six-entry feed, and the correctly ordered German player-death entry. The user also confirmed expiry/NPC filtering, settings persistence, and third-person/map-transition cleanup. This records user gameplay acceptance, not an instrumented frame-time benchmark.
+
+A subsequent review correction requires explicit map evidence for both live actors. Regression tests reproduced incorrect distances with an unresolved NPC map on outgoing kills and incoming player deaths, then verified that only the distance is omitted and combat recording remains intact. The corrected build passed 2,571 core/native-boundary and 216 shell tests in Release, a zero-warning native Release build, and the ordinary package audit. This guard has automated coverage; the gameplay acceptance above predates it.
 
 Reusable native test checklist:
 
