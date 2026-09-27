@@ -1,6 +1,6 @@
 # Results screen summary
 
-The source adds one UDS-owned block to Duckov 2.3.30's existing extraction/death results screen. The native title, damage-source text, XP animation, fade groups, and Continue action remain owned by the game. The block uses the native text template's font/material, equal-width metric columns and English/German labels. Native visual acceptance is still required before release.
+The source adds one UDS-owned block to Duckov 2.3.30's existing extraction/death results screen. The native title, damage-source text, XP animation, fade groups, and Continue action remain owned by the game. The block uses the native text template's font/material, equal-width metric columns and English/German labels. English/German extraction layout and populated results passed user acceptance on September 27, 2026. Death-screen behavior remains a separate native check.
 
 ## Values and capture boundaries
 
@@ -30,7 +30,7 @@ Installed Duckov 2.3.30 `resources.assets` contains `ClosureView` (GameObject 30
 
 UDS owns a compact 150-unit block, containing an 84-unit metric row and 52-unit note separated by 8 units. The owned root and row explicitly advertise zero flexible height, and the row does not force vertical expansion. A preferred height alone is insufficient: Unity's default LayoutElement flexible height is -1 (no override), so nested layout-group flexibility otherwise reaches the native parent and consumes the entire viewport's spare height. The native anchors, padding, scale, sizing preferences, title, XP block and Continue container are never rewritten. Adding the summary therefore increases the centered content extent by only its own 150 units.
 
-The focused layout regression uses the installed UnityEngine.UI layout-property priority and vertical negotiation rules with the serialized native preferences. It reproduces the previous viewport-filling summary before the correction and checks measured block bounds, footer adjacency, symmetric native margins, native child dimensions/preferences, and restoration after close at several viewport heights. It runs against the production-created hierarchy but is a narrow managed layout model, not the Unity engine or a glyph renderer; rendered English/German extraction/death acceptance remains required.
+The focused layout regression uses the installed UnityEngine.UI layout-property priority and vertical negotiation rules with the serialized native preferences. It reproduces the previous viewport-filling summary before the correction and checks measured block bounds, footer adjacency, symmetric native margins, native child dimensions/preferences, and restoration after close at several viewport heights. It runs against the production-created hierarchy but is a narrow managed layout model, not the Unity engine or a glyph renderer; the native acceptance recorded below remains distinct from this managed model.
 
 ## Recording failures and acceptance
 
@@ -40,11 +40,11 @@ The route failure was reproduced with the installed Mono reader and the captured
 
 An isolated harness compiled the production writer against the installed game assemblies and ran it with Duckov's Mono runtime. It reproduced the old failure, accepted the next route sample after the correction, and preserved the original bits of 10,002 finite doubles and 9,970 finite floats, including extrema and seeded arbitrary bit patterns. The same emitted bytes were checked against Mono's saved original bit patterns using .NET 8; nullable and null/nonfinite reader behavior was checked separately. No running game or live profile was modified by this qualification.
 
-The numeric JSON schema and payload-hash checks are unchanged. Previously stored payloads remain readable; new capture hosts use fresh session/visit/chunk identities and cannot append to a prior process's route chunks. The fix does not reconstruct a failed session's unsaved tail or invent the missing result. A fresh raid is required for native acceptance.
+The numeric JSON schema and payload-hash checks are unchanged. Previously stored payloads remain readable; new capture hosts use fresh session/visit/chunk identities and cannot append to a prior process's route chunks. The fix does not reconstruct a failed session's unsaved tail or invent the missing result. Fresh-raid acceptance is recorded below.
 
 Diagnostics must distinguish healthy capture contracts from successful publication. A rejected encounter record keeps current profile persistence in an error state until that exact generation/run/kind/record is accepted; another successful record or snapshot cannot clear it. Storage errors now also affect the overall banner. Normal deferred writes remain pending without claiming a failure, and old incomplete raids do not imply that today's combat hooks are unavailable. Regression coverage exercises actual repository rejection, an unrelated successful write, exact retry, repeated throttled errors and retained-panel refresh.
 
-Rendered German/death layout and a fresh successful raid's time, kills and value remain native acceptance checks after the recording correction.
+After deployment on September 27, 2026, the user accepted a fresh extraction with time, player kills and estimated net value populated in the compact layout, then confirmed that the fixes work and both German and English were tested. The deployed runtime passed 2,546 main tests and 154 shell tests in each of Debug and Release, the installed contract probe, native Release build, ordinary package audit and independent hash readback of all 13 deployed files. Death-screen behavior and dedicated frame-time qualification have not been explicitly confirmed by this acceptance.
 
 ## Other mods and native qualification
 

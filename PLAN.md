@@ -5,7 +5,8 @@
 ## Results screen summary
 
 - [x] Implemented an owned native results block for active raid time, proven player kills and estimated net value, with English/German text and bounded process-local capture. See [calculation and lifecycle boundaries](docs/EXTRACTION_SUMMARY.md).
-- [ ] Native extraction/death, English/German layout and results-flow acceptance. Disable overlapping results mods for the unified-layout test; this feature does not modify their settings.
+- [x] Native extraction layout, populated results and recording corrections accepted by the user on September 27, 2026, with German and English tested.
+- [ ] Native death-screen behavior remains an unconfirmed check. Disable overlapping results mods for unified-layout testing; this feature does not modify their settings.
 
 ## Current playtest follow-ups — 2026-09-11
 
