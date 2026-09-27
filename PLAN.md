@@ -10,7 +10,7 @@
 
 ## Current source extension — modifier shortcuts
 
-Ctrl/Alt/Shift combinations and the new-settings Ctrl+Alt+S default are implemented in current source, preserving saved bindings such as F8. See the [shortcut contract and focused native acceptance checklist](docs/MODIFIER_SHORTCUTS.md). Automated qualification and user-controlled native acceptance are separate; native keyboard/visual acceptance remains pending. This does not change the published v1.3.0 archive or complete Workshop distribution.
+Ctrl/Alt/Shift combinations and the new-settings Ctrl+Alt+S default are implemented in current source, preserving saved bindings such as F8. See the [shortcut contract and focused native acceptance checklist](docs/MODIFIER_SHORTCUTS.md). The user accepted shortcut behavior and the first-click cancellation correction on September 27, 2026; the linked document separates native acceptance from automated boundary checks. This does not change the published v1.3.0 archive or complete Workshop distribution.
 
 ## Current playtest follow-ups — 2026-09-11
 
