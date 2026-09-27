@@ -33,8 +33,15 @@ The installed DLLs were statically inspected on 2026-09-23 against Duckov 2.3.30
 | Assembly | Module ID | SHA-256 |
 | --- | --- | --- |
 | FirstPersonCamera | `916ebb5c-dc53-4c53-ba0d-a4f672364748` | `832be121a23095bc37dba4735b155a3d1e0c8a511eb18d5e992ba91887965cac` |
+| FirstPersonCamera (reinspected 2026-09-27) | `d5173e49-e754-49ed-88de-b8af2f607f67` | `c7d5b7c7c74bc9ae793ee262bdfd379ffd22b8b8fbe8edfeaaed108620e56835` |
 | BecomeVeteran | `f86b3a0a-3767-44bc-a545-72252bbf26f4` | `a79a3391fe66b2ea0000eb2310e24d512ed77276af0850eb292515c48a8e8b6b` |
 | StorageSearchBar | `6d2fdec7-3d42-480f-8fad-c02752e66fc5` | `2887f088a6bd99186b855135b0e72a548fbd6f72a17076f69e28dee3b3e205b0` |
+
+### FPC build reinspection, 2026-09-27
+
+The installed FPC DLL changed after the initial qualification. A fresh-game extraction test on September 27 rejected its unknown binary identity at `Health.Hurt` and `Grenade.Launch`, leaving the raid's player-kill total unavailable. This was a combat-capture gap, not a results-screen count loss; missing history cannot be reconstructed.
+
+Static comparison of the two installed builds found identical `HeadshotPatch`, `HitEffectsPatch`, `PhysicalProjectileHeadshotBridge`, `LastDanceHeadshotCompatibility`, `Grenade_Launch_Patch` and patch-registration code. The changed grenade explosion relay additionally requests vegetation animation; it preserves the grenade's native damage/source fields. The mode accessor still reads the controller's first-person state, and the inspected hook priorities and ownership are unchanged. Both exact module/hash pairs are now recognized; unknown builds and unexpected callback/order changes still fail closed. The newer build requires a fresh native combat/extraction test; the earlier smoke results do not qualify that build.
 
 ## Qualification
 
