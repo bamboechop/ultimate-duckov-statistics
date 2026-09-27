@@ -10,6 +10,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/UltimateDuckovStatistics/UI/NativeExtractionSummary.cs" Link="ProductionUI/NativeExtractionSummary.cs" />
+
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/PanelHotkey.cs" Link="ProductionUI/PanelHotkey.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/RetainedStatisticsShell.Frames.cs" Link="ProductionUI/RetainedStatisticsShell.Frames.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/RetainedStatisticsShell.Lifecycle.cs" Link="ProductionUI/RetainedStatisticsShell.Lifecycle.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/RetainedRecordsView.cs;../../src/UltimateDuckovStatistics/UI/RetainedItemUseView.cs;../../src/UltimateDuckovStatistics/UI/RetainedCombatView.cs;../../src/UltimateDuckovStatistics/UI/CombatNativeTextMeasurement.cs" Link="ProductionUI/%(Filename)%(Extension)" />

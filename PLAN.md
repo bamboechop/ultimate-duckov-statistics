@@ -8,6 +8,10 @@
 - [x] Native extraction layout, populated results and recording corrections accepted by the user on September 27, 2026, with German and English tested.
 - [ ] Native death-screen behavior remains an unconfirmed check. Disable overlapping results mods for unified-layout testing; this feature does not modify their settings.
 
+## Current source extension — modifier shortcuts
+
+Ctrl/Alt/Shift combinations and the new-settings Ctrl+Alt+S default are implemented in current source, preserving saved bindings such as F8. See the [shortcut contract and focused native acceptance checklist](docs/MODIFIER_SHORTCUTS.md). Automated qualification and user-controlled native acceptance are separate; native keyboard/visual acceptance remains pending. This does not change the published v1.3.0 archive or complete Workshop distribution.
+
 ## Current playtest follow-ups — 2026-09-11
 
 These reports originated with the completed 23-minute, five-map raid and the return to base. The scoped fixes and storage follow-ups were completed by 2026-09-13. Entries distinguish automated validation, native acceptance and remaining limits; completion does not imply that every observed game hitch was attributed to UDS or eliminated.
