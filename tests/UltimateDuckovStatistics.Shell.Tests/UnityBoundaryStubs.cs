@@ -144,8 +144,8 @@ namespace UnityEngine
             .Where(value => value is not Object native || !native.Destroyed).ToArray();
     }
     public static class Mathf { public static float Max(float a, float b) => Math.Max(a, b); public static float Min(float a, float b) => Math.Min(a, b); public static float Clamp(float x, float a, float b) => Math.Clamp(x, a, b); public static int RoundToInt(float v) => (int)Math.Round(v); public static bool Approximately(float a, float b) => Math.Abs(a - b) < .0001; }
-    public enum KeyCode { None, F5, F6, F8, F9, F10, Escape, Tab, LeftShift, RightShift, LeftControl, RightControl, Return, KeypadEnter, Mouse0, Mouse1 }
-    public static class Input { public static readonly HashSet<KeyCode> Down = new(); public static bool GetKeyDown(KeyCode key) => Down.Contains(key); public static bool GetKey(KeyCode key) => Down.Contains(key); public static bool anyKeyDown => Down.Count > 0; }
+    public enum KeyCode { None, F5, F6, F8, F9, F10, Escape, Tab, LeftShift, RightShift, LeftControl, RightControl, Return, KeypadEnter, Mouse0, Mouse1, Mouse2, Mouse3, Mouse4, Mouse5, Mouse6, S, K, LeftAlt, RightAlt, AltGr, LeftWindows, RightWindows, LeftCommand, RightCommand, LeftArrow, RightArrow, UpArrow, DownArrow, Space, JoystickButton0 }
+    public static class Input { public static readonly HashSet<KeyCode> Down = new(); public static readonly HashSet<KeyCode> Held = new(); public static bool GetKeyDown(KeyCode key) => Down.Contains(key); public static bool GetKey(KeyCode key) => Down.Contains(key) || Held.Contains(key); public static bool anyKeyDown => Down.Count > 0; public static bool anyKey => Down.Count > 0 || Held.Count > 0; }
     public enum CursorLockMode { None, Locked, Confined }
     public static class Cursor { public static bool visible; public static CursorLockMode lockState; }
     public static class Time { public static int frameCount; public static float unscaledTime; }
@@ -174,6 +174,7 @@ namespace UnityEngine.UI
     public struct Navigation { public Mode mode; public enum Mode { None, Automatic, Explicit } }
     public struct ColorBlock { public Color normalColor, highlightedColor, pressedColor, selectedColor, disabledColor; public float colorMultiplier, fadeDuration; public static ColorBlock defaultColorBlock => new(); }
     public class Selectable : Behaviour { public enum Transition { None, ColorTint, SpriteSwap, Animation } public Transition transition; public Navigation navigation; public ColorBlock colors; public Graphic targetGraphic = null!; public bool interactable = true; public bool IsActive() => isActiveAndEnabled; public bool IsInteractable() => interactable; }
+    public class InputField : Selectable { public bool isFocused; }
     public class Button : Selectable { public sealed class ButtonClickedEvent : UnityEngine.Events.UnityEvent { } public ButtonClickedEvent onClick = new(); }
     public class ScrollRect : Behaviour { public bool inertia; public virtual void OnScroll(UnityEngine.EventSystems.PointerEventData data) { } public sealed class ScrollEvent { private readonly List<Action<Vector2>> listeners = new(); public void AddListener(Action<Vector2> listener) => listeners.Add(listener); public void RemoveAllListeners() => listeners.Clear(); public void Invoke(Vector2 value) { foreach (var listener in listeners.ToArray()) listener(value); } } public ScrollEvent onValueChanged = new(); public RectTransform content = null!, viewport = null!; public bool horizontal, vertical; public float scrollSensitivity; public MovementType movementType; public enum MovementType { Clamped, Elastic, Unrestricted } public void StopMovement() { } }
     public class GraphicRaycaster : Behaviour { }
@@ -195,6 +196,7 @@ namespace UnityEngine.UI.ProceduralImage
 namespace TMPro
 {
     using UnityEngine;
+    public class TMP_InputField : UnityEngine.UI.Selectable { public bool isFocused; }
     public enum FontWeight { Regular, Bold }
     public enum FontStyles { Normal, Bold, Italic }
     public enum TextAlignmentOptions { Left, Center, Right, TopLeft, Top, TopRight, MidlineLeft, Midline, BottomLeft, BottomRight }
@@ -265,7 +267,7 @@ public sealed class LevelManager : UnityEngine.Object
 public sealed class UIInputEventData { public void Use() { } }
 public static class UIInputManager { public static event Action<UIInputEventData>? OnCancelEarly; public static int CancelListeners => OnCancelEarly?.GetInvocationList().Length ?? 0; }
 
-namespace UnityEngine { public static class Application { public static string version = "2.3.30"; } public static class Debug { public static void LogException(Exception exception) => throw exception; public static void LogWarning(object message) { } } public struct Vector2Int { public static Vector2 zero => new(0, 0); } }
+namespace UnityEngine { public static class Application { public static string version = "2.3.30"; public static bool isFocused = true; } public static class Debug { public static void LogException(Exception exception) => throw exception; public static void LogWarning(object message) { } } public struct Vector2Int { public static Vector2 zero => new(0, 0); } }
 
 namespace UnityEngine.SceneManagement
 {

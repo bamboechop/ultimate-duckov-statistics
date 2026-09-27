@@ -23,7 +23,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private readonly AtomicJsonStore<UserSettings> settingsStore = new();
     private readonly string settingsPath;
     private readonly PanelOperationController operations;
-    private KeyCode hotkey = KeyCode.F8;
+    private PanelHotkey hotkey = PanelHotkey.Default;
+    private UserSettings settings = new();
+    private bool waitForFocusedKeyRelease;
     private PanelAccessSurface? openSurface;
     private bool disposed;
     private bool cursorStateCaptured;
@@ -174,6 +176,16 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
 
+        // Ignore background input and require release after focus returns so a
+        // key held while switching windows cannot activate or bind a shortcut.
+        if (!Application.isFocused) { waitForFocusedKeyRelease = true; return; }
+        if (waitForFocusedKeyRelease)
+        {
+            if (Input.anyKey) return;
+            waitForFocusedKeyRelease = false;
+        }
+        if (NativePanelHotkeyInput.TextInputFocused()) return;
+
 #if UDS_ENCOUNTER_DIAGNOSTICS
         // The evidence viewer borrows this panel's input/cursor ownership. Its
         // full-screen raycast shield blocks clicks; suppress keyboard navigation too.
@@ -182,7 +194,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         if (Input.GetKeyDown(KeyCode.F6) || CanShowEncounterPreview && Input.GetKeyDown(KeyCode.F5)) return;
         if (lifecycle.IsOpen && EncounterPreviewIsOpen)
         {
-            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(hotkey)) Close();
+            if (Input.GetKeyDown(KeyCode.Escape) || NativePanelHotkeyInput.Pressed(hotkey)) Close();
             return;
         }
 #endif
@@ -210,7 +222,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
             shell.SetSelectedTab(interaction.SelectedTab);
         }
 
-        if (Input.GetKeyDown(hotkey))
+        if (NativePanelHotkeyInput.Pressed(hotkey))
         {
             if (lifecycle.IsOpen) Close();
             else RequestOpen(PanelAccessSurface.Hotkey);
@@ -400,7 +412,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     {
         GenerationId = coordinator.CurrentGenerationId,
         DataRoot = coordinator.DataRoot,
-        Hotkey = hotkey.ToString(),
+        Hotkey = hotkey.DisplayText,
         GameVersion = Application.version,
         HarmonyLoaded = ReflectiveHarmonyPatcher.IsHarmonyLoaded,
         OpenDetail = coordinator.LastOpenStatus,
@@ -509,16 +521,23 @@ internal sealed class NativeStatisticsPanel : IDisposable
         if (!Input.anyKeyDown || Time.frameCount == hotkeyCaptureFrame) return;
         foreach (var candidate in HotkeyCandidates)
         {
-            if (!Input.GetKeyDown(candidate)) continue;
-            if (!PanelHotkeyPolicy.IsAllowed(candidate.ToString()))
+            // Pointer presses belong to the modal controls. Adding a warning on
+            // mouse-down moves Cancel before mouse-up and makes the click miss.
+            if (candidate >= KeyCode.Mouse0 && candidate <= KeyCode.Mouse6) continue;
+            if (!Input.GetKeyDown(candidate) || NativePanelHotkeyInput.IsModifier(candidate)) continue;
+            if (!PanelHotkeyPolicy.IsAllowed(candidate.ToString()) || NativePanelHotkeyInput.UnsupportedModifiers)
             { hotkeyWarning = UiText.Get("ui.diag_hotkey_invalid"); return; }
+            var captured = new PanelHotkey(candidate, NativePanelHotkeyInput.Modifiers);
+            var previous = settings.PanelHotkey;
             try
             {
-                settingsStore.Save(settingsPath, new UserSettings { PanelHotkey = candidate.ToString() });
-                hotkey = candidate; CancelHotkeyCapture(); diagnosticsRevision = -1;
+                settings.PanelHotkey = captured.ToString();
+                settingsStore.Save(settingsPath, settings);
+                hotkey = captured; CancelHotkeyCapture(); diagnosticsRevision = -1;
             }
             catch (Exception exception)
             {
+                settings.PanelHotkey = previous;
                 hotkeyWarning = UiText.Get("ui.diag_hotkey_failed");
                 coordinator.ReportUiDiagnostic("M17 UI hotkey change failed; the previous key remains active. "
                     + exception.GetType().Name + ": " + exception.Message, "Warning");
@@ -645,17 +664,18 @@ internal sealed class NativeStatisticsPanel : IDisposable
     {
         try
         {
-            var settings = settingsStore.Load(settingsPath).Value ?? new UserSettings();
-            if (!Enum.TryParse(settings.PanelHotkey, ignoreCase: true, out hotkey) || !Enum.IsDefined(typeof(KeyCode), hotkey)
-                || !PanelHotkeyPolicy.IsAllowed(hotkey.ToString()))
-                hotkey = KeyCode.F8;
+            var loaded = settingsStore.Load(settingsPath).Value;
+            settings = loaded ?? new UserSettings();
+            if (!PanelHotkey.TryParse(settings.PanelHotkey, out hotkey)) hotkey = PanelHotkey.Default;
+            var needsSave = loaded == null || settings.PanelHotkey != hotkey.ToString();
             settings.PanelHotkey = hotkey.ToString();
-            settingsStore.Save(settingsPath, settings);
+            if (needsSave) settingsStore.Save(settingsPath, settings);
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
-            hotkey = KeyCode.F8;
+            // Keep a successfully parsed binding even if normalization could
+            // not be written. Read failures retain the initialized default.
         }
     }
 

@@ -24,7 +24,7 @@ public sealed partial class ShellAccessTests : IDisposable
         Time.frameCount++; // The assignment key arrives after the click that begins capture.
         Press(panel, key);
         Assert.False(Field<bool>(panel, "capturingHotkey"));
-        Assert.Equal(key, Field<KeyCode>(panel, "hotkey"));
+        Assert.Equal(key, Field<PanelHotkey>(panel, "hotkey").Key);
         Press(panel, KeyCode.Escape);
         Press(panel, key);
         Assert.True(Find(RetainedDimmerPolicy.RootName).activeInHierarchy);
@@ -261,6 +261,9 @@ public sealed partial class ShellAccessTests : IDisposable
     public ShellAccessTests()
     {
         Directory.CreateDirectory(fixtureRoot);
+        // Existing installations retain their persisted binding. Most shell
+        // lifecycle tests deliberately exercise that legacy F8 installation.
+        new AtomicJsonStore<UserSettings>().Save(Path.Combine(fixtureRoot, "settings.json"), new UserSettings { PanelHotkey = "F8" });
         coordinator = new NativeProfileCoordinator(fixtureRoot)
         {
             Current = new ProfileDocument { GenerationId = "fixture-v1", CreatedUtc = DateTime.UtcNow, UpdatedUtc = DateTime.UtcNow }
@@ -273,6 +276,8 @@ public sealed partial class ShellAccessTests : IDisposable
         LevelManager.Instance = new LevelManager { IsBaseLevel = false };
         NativeRaidContext.InRaid = false;
         Input.Down.Clear();
+        Input.Held.Clear();
+        Application.isFocused = true;
     }
 
     [Theory]
@@ -673,6 +678,10 @@ public sealed partial class ShellAccessTests : IDisposable
         PauseMenu.Instance = null;
         Duckov.UI.NotificationText.Messages.Clear();
         NativeRaidContext.InRaid = false;
+        Input.Held.Clear();
+        Input.Down.Clear();
+        Application.isFocused = true;
+        GameManager.EventSystem?.SetSelectedGameObject(null);
         Directory.Delete(fixtureRoot, recursive: true);
     }
 }
