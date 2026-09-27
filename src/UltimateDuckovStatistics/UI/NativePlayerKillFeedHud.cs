@@ -1,4 +1,5 @@
 using System.Globalization;
+using Duckov.Scenes;
 using Saves;
 using SodaCraft.Localizations;
 using UltimateDuckovStatistics.Core.Domain;
@@ -6,6 +7,7 @@ using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Tracking;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.UI.ProceduralImage;
 
@@ -34,6 +36,8 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
         this.settings = settings; this.diagnostic = diagnostic;
         SceneLoader.onStartedLoadingScene += Loading;
         SceneLoader.onFinishedLoadingScene += Ready;
+        MultiSceneCore.OnSubSceneWillBeUnloaded += SubSceneLoading;
+        MultiSceneCore.OnSubSceneLoaded += SubSceneReady;
         LevelManager.OnLevelInitialized += ScheduleDiscovery;
         SavesSystem.OnSetFile += Reset;
         SavesSystem.OnSaveDeleted += Reset;
@@ -52,10 +56,11 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
         {
             var options = settings();
             var now = Time.unscaledTimeAsDouble;
+            var loading = SceneLoader.IsSceneLoading || (MultiSceneCore.Instance != null && MultiSceneCore.Instance.IsLoading);
             feed.Trim(now, options);
             if (rows.Count > 0 && (root == null || owner == null || canvasRect == null))
             { DestroyView(); ScheduleDiscovery(); }
-            if (root == null && options.Enabled && !SceneLoader.IsSceneLoading
+            if (root == null && options.Enabled && !loading
                 && discoveryAttempts > 0 && Time.unscaledTime >= nextDiscovery)
             {
                 discoveryAttempts--; nextDiscovery = Time.unscaledTime + .5f;
@@ -63,7 +68,7 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
             }
             if (root == null || owner == null || canvasRect == null) return;
             var visible = feed.Entries.Count > 0 && options.Enabled && owner.isActiveAndEnabled
-                && owner.weatherText != null && owner.weatherText.isActiveAndEnabled && !SceneLoader.IsSceneLoading;
+                && owner.weatherText != null && owner.weatherText.isActiveAndEnabled && !loading;
             if (root.gameObject.activeSelf != visible) root.gameObject.SetActive(visible);
             if (!visible || owner.weatherText == null) return;
 
@@ -143,6 +148,8 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
 
     private void Loading(SceneLoadingContext _) { Reset(); }
     private void Ready(SceneLoadingContext _) => ScheduleDiscovery();
+    private void SubSceneLoading(MultiSceneCore _, Scene __) => Reset();
+    private void SubSceneReady(MultiSceneCore _, Scene __) => ScheduleDiscovery();
     private void ScheduleDiscovery() { if (!disposed) { discoveryAttempts = 10; nextDiscovery = 0; } }
     private void LanguageChanged(SystemLanguage _) { languageDirty = true; }
     private void Reset()
@@ -162,6 +169,8 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
         disposed = true;
         SceneLoader.onStartedLoadingScene -= Loading;
         SceneLoader.onFinishedLoadingScene -= Ready;
+        MultiSceneCore.OnSubSceneWillBeUnloaded -= SubSceneLoading;
+        MultiSceneCore.OnSubSceneLoaded -= SubSceneReady;
         LevelManager.OnLevelInitialized -= ScheduleDiscovery;
         SavesSystem.OnSetFile -= Reset;
         SavesSystem.OnSaveDeleted -= Reset;

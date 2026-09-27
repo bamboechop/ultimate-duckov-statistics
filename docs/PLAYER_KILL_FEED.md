@@ -27,7 +27,7 @@ Distance is horizontal player-to-other-actor separation at the fatal health assi
 
 Callbacks only copy data. Native text, Steam-name lookup and icon generation happen in the HUD tick, outside damage callbacks. A failed feed callback cannot abort statistics recording. The feed does not read historical runs, write encounter history or change a Duckov save. Existing adapter trust checks remain in force; this adds no Harmony patches or third-party dependency. The installed Steamworks assembly is referenced but not shipped.
 
-Scene/save transitions and disposal clear the feed. Native HUD visibility controls its visibility. Discovery is limited to ten half-second attempts after activation or a lifecycle change, and stops once bound. Six row objects are reused; unchanged text/layout is not rebuilt every frame. White icons are cached up to 64 item types, with native icons thereafter. All generated sprites/textures and owned UI are released on disposal. Native assets are never destroyed or modified.
+Full-scene loads, native subscene unloads during travel between raid maps, save transitions and disposal clear the feed. Native HUD visibility controls its visibility. Discovery is limited to ten half-second attempts after activation or a lifecycle change, pauses during both full-scene and subscene loading, and stops once bound. The native subscene-loaded event refreshes the discovery budget for the destination HUD. Six row objects are reused; unchanged text/layout is not rebuilt every frame. White icons are cached up to 64 item types, with native icons thereafter. All generated sprites/textures, owned UI and event subscriptions are released on disposal. Native assets are never destroyed or modified.
 
 ## Validation
 
@@ -45,6 +45,8 @@ On 2026-09-27, the user accepted the final in-game layout and confirmed the plan
 
 A subsequent review correction requires explicit map evidence for both live actors. Regression tests reproduced incorrect distances with an unresolved NPC map on outgoing kills and incoming player deaths, then verified that only the distance is omitted and combat recording remains intact. The corrected build passed 2,571 core/native-boundary and 216 shell tests in Release, a zero-warning native Release build, and the ordinary package audit. This guard has automated coverage; the gameplay acceptance above predates it.
 
+The subscene lifecycle correction covers the installed game's separate `MultiSceneCore.LoadAndTeleport` path, which does not raise `SceneLoader` loading events. Two regressions first reproduced stale entries, then verified immediate clearing, no discovery during a seven-second load, and successful new-map entries with either a retained or replacement weather display. Disposal checks also verify removal of both subscene subscriptions. The correction passed 218 Release shell tests, 220 combined-diagnostic Debug shell tests, and a native Release build with no warnings or errors. This specific transition fix has not yet been retested in-game.
+
 Reusable native test checklist:
 
 1. Disable CS Like Kill Feed and restart Duckov with this UDS build. Keep the normal mod set, including FPC if desired.
@@ -52,4 +54,4 @@ Reusable native test checklist:
 3. During a raid, kill enemies at different distances, including a confirmed headshot and a body-shot kill. Verify names, icon, distance under the weapon, optional headshot icon, left alignment and spacing below the storm box.
 4. Make more than six quick kills: only the newest six should remain. After ten seconds each entry should expire. NPC-versus-NPC deaths must not appear.
 5. On a convenient player death, check killer → weapon/distance → player order without a fabricated headshot icon. Unknown environmental deaths may lack weapon/distance.
-6. Transition between maps/base, pause/hide HUD and return. Check for stale or duplicate entries, persistent input blocking, exceptions in Player.log, and visible performance changes.
+6. With a recent kill still in the feed, travel to another map within the same raid, then return to base. The old entry must not reappear on arrival, and new-map kills must display normally. Pause/hide HUD and return. Check for stale or duplicate entries, persistent input blocking, exceptions in Player.log, and visible performance changes.

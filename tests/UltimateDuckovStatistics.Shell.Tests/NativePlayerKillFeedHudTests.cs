@@ -1,3 +1,4 @@
+using Duckov.Scenes;
 using Saves;
 using SodaCraft.Localizations;
 using TMPro;
@@ -23,6 +24,7 @@ public sealed class NativePlayerKillFeedHudTests : IDisposable
 
     public NativePlayerKillFeedHudTests()
     {
+        MultiSceneCore.Instance = null;
         KillFeedIcons.Weapons.Clear();
         SceneLoader.FinishLoading(); Time.unscaledTime = 0;
         LocalizationManager.SetLanguage(SystemLanguage.English);
@@ -176,6 +178,43 @@ public sealed class NativePlayerKillFeedHudTests : IDisposable
         Assert.False(Root().gameObject.activeSelf);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NativeSubsceneTransitionClearsRecentEntriesAndRediscoversAfterLoading(bool replaceDisplay)
+    {
+        var core = new MultiSceneCore(); MultiSceneCore.Instance = core;
+        settings = settings with { DurationSeconds = 30 };
+        hud.Record(Kill("old-map"), 5); hud.Tick();
+        Assert.True(Root().gameObject.activeSelf);
+        var searches = NativeObject.SceneSearches;
+
+        core.BeginSubSceneLoad();
+        Assert.False(SceneLoader.IsSceneLoading); // This native route never raises SceneLoader events.
+        Assert.DoesNotContain(GameObject.Live, go => go.name == "UDSPlayerKillFeed");
+        if (replaceDisplay) display.gameObject.SetActive(false);
+        for (var i = 1; i <= 14; i++) { Time.unscaledTime = i * .5f; hud.Tick(); }
+        Assert.Equal(searches, NativeObject.SceneSearches); // Loading must not consume the discovery budget.
+        Assert.DoesNotContain(GameObject.Live, go => go.name == "UDSPlayerKillFeed");
+
+        if (replaceDisplay)
+        {
+            var next = Child(canvas.transform, "NextWeatherDisplay").AddComponent<TimeOfDayDisplay>();
+            next.weatherText = Child(next.transform, "Weather").AddComponent<TextMeshProUGUI>();
+            next.weatherText.font = display.weatherText.font;
+            next.weatherText.fontSharedMaterial = display.weatherText.fontSharedMaterial;
+            next.stormRoot = Child(next.transform, "NextStorm");
+            ((RectTransform)next.stormRoot.transform).TestWorldCorners = Corners(12, 880);
+        }
+        core.FinishSubSceneLoad(); hud.Tick();
+        Assert.False(Root().gameObject.activeSelf); // The old entry is younger than its expiry but must be gone.
+        hud.Record(Kill("new-map") with { TargetDisplayName = "New enemy" }, 8); hud.Tick();
+        Assert.True(Root().gameObject.activeSelf);
+        Assert.Equal("New enemy", Label("Victim").text);
+        Assert.Single(Root().Children, child => child.gameObject.activeSelf);
+        Assert.Empty(diagnostics);
+    }
+
     [Fact]
     public void LanguageRefreshAndDisposeReleaseOwnedRowsAndSubscriptions()
     {
@@ -184,8 +223,12 @@ public sealed class NativePlayerKillFeedHudTests : IDisposable
         LocalizationManager.SetLanguage(SystemLanguage.German); hud.Tick();
         Assert.Equal("Umgebung", Label("Attacker").text); Assert.Equal("bamboechop", Label("Victim").text);
         var beforeScenes = SceneLoader.Listeners; var beforeSaves = SavesSystem.Listeners;
+        var beforeSubScenes = MultiSceneCore.Listeners;
         hud.Dispose(); hud.Dispose();
         Assert.Equal(beforeScenes - 2, SceneLoader.Listeners); Assert.Equal(beforeSaves - 2, SavesSystem.Listeners);
+        Assert.Equal(beforeSubScenes - 2, MultiSceneCore.Listeners);
+        var core = new MultiSceneCore(); MultiSceneCore.Instance = core;
+        core.BeginSubSceneLoad(); core.FinishSubSceneLoad();
         hud.Record(Kill("late"), null); hud.Tick();
         Assert.DoesNotContain(GameObject.Live, go => go.name == "UDSPlayerKillFeed");
         Assert.False(canvas.Destroyed); Assert.False(display.Destroyed); Assert.Empty(diagnostics);
@@ -222,6 +265,7 @@ public sealed class NativePlayerKillFeedHudTests : IDisposable
         hud.Dispose(); NativeObject.Destroy(canvas); UiText.ConfigureNativeResolver(null);
         LocalizationManager.SetLanguage(SystemLanguage.English);
         SceneLoader.FinishLoading(); Time.unscaledTime = 0;
+        MultiSceneCore.Instance = null;
     }
 }
 
