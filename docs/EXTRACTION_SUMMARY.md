@@ -1,6 +1,6 @@
 # Results screen summary
 
-The source adds one UDS-owned block to Duckov 2.3.30's existing extraction/death results screen. The native title, damage-source text, XP animation, fade groups, and Continue action remain owned by the game. The block uses the native text template's font/material, equal-width metric columns and English/German labels. English/German extraction layout and populated results passed user acceptance on September 27, 2026. Death-screen behavior remains a separate native check.
+UDS 1.4.0 adds one UDS-owned block to Duckov 2.3.30's existing extraction/death results screen. The native title, damage-source text, XP animation, fade groups, and Continue action remain owned by the game. The block uses the native text template's font/material, equal-width metric columns and English/German labels. English/German extraction layout and populated results passed user acceptance on September 27, 2026. Death-screen behavior remains a separate native check.
 
 ## Values and capture boundaries
 

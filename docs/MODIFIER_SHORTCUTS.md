@@ -1,6 +1,6 @@
 # Configurable modifier shortcuts
 
-Current source accepts one ordinary keyboard key, optionally combined with any of Ctrl, Alt and Shift. New settings and invalid-binding fallback use `Ctrl+Alt+S`. Valid saved settings, including the earlier F8 default, are preserved because the settings file cannot distinguish an automatically saved default from an explicit choice. Existing users can select the shortcut in Diagnostics to choose the new default themselves. No live settings or Duckov saves are changed during development.
+UDS 1.4.0 accepts one ordinary keyboard key, optionally combined with any of Ctrl, Alt and Shift. New settings and invalid-binding fallback use `Ctrl+Alt+S`. Valid saved settings, including the earlier F8 default, are preserved because the settings file cannot distinguish an automatically saved default from an explicit choice. Existing users can select the shortcut in Diagnostics to choose the new default themselves. Updating UDS preserves valid saved bindings and does not modify Duckov saves.
 
 ## Input and persistence contract
 

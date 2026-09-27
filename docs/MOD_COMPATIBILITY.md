@@ -4,6 +4,8 @@
 
 Enable Harmony and the optional mods before UDS, and restart Duckov after changing the enabled mod set. Runtime patch-set changes still invalidate affected recording; changing mod load order does not reconstruct missing history.
 
+Version [1.4.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.4.0) also recognizes the September 27 reinspected FPC build listed below and includes [modifier shortcuts](MODIFIER_SHORTCUTS.md). Its numeric-persistence and Diagnostics corrections apply with or without optional mods; see [the recording failure analysis](EXTRACTION_SUMMARY.md#recording-failures-and-acceptance).
+
 ## Behavior
 
 | Mod | Recording behavior |
@@ -20,7 +22,7 @@ Discovery and binary hashing occur during initialization/patch inspection. FPC's
 
 ## Panel pause and camera input
 
-Base keyboard-shortcut access opens Duckov's native `PauseMenu` before showing UDS. Duckov derives `GameManager.Paused` from that menu, and the inspected FPC `IsUiBlocking()` checks the same state before processing mouse rotation. UDS continues to block ordinary native gameplay input and release the cursor. No separate camera patch or direct time-scale override is installed. Current source supports [modifier shortcuts](MODIFIER_SHORTCUTS.md), preserving saved F8 bindings and using Ctrl+Alt+S for new settings.
+Base keyboard-shortcut access opens Duckov's native `PauseMenu` before showing UDS. Duckov derives `GameManager.Paused` from that menu, and the inspected FPC `IsUiBlocking()` checks the same state before processing mouse rotation. UDS continues to block ordinary native gameplay input and release the cursor. No separate camera patch or direct time-scale override is installed. Version 1.4.0 supports [modifier shortcuts](MODIFIER_SHORTCUTS.md), preserving saved F8 bindings and using Ctrl+Alt+S for new settings.
 
 UDS owns only a pause it started: closing statistics resumes that pause, while an already-open pause menu stays open. Failed panel activation, profile changes and disposal release UDS-owned pause/input state. External pause closure or replacement closes statistics without reopening a pause or closing the replacement. Main-menu access does not start a base pause.
 
