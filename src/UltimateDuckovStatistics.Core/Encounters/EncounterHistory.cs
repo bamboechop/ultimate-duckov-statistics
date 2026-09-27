@@ -27,9 +27,11 @@ internal sealed class EncounterHistory : IList<EncounterRecord>
     private readonly Dictionary<(string Run, EncounterRecordKind Kind, string Id), byte[]> pending = new();
     private readonly Dictionary<(string Run, EncounterRecordKind Kind, string Id), byte[]> recent = new();
     private IEncounterHistorySource? source;
+    private readonly ProfileRecordCodec codec;
     private long distanceRevision;
     internal long DistanceRevision { get { lock (gate) return distanceRevision; } }
-    internal EncounterHistory(IEncounterHistorySource? source = null) => this.source = source;
+    internal EncounterHistory(IEncounterHistorySource? source = null, ProfileRecordCodec? codec = null)
+    { this.source = source; this.codec = codec ?? new ProfileRecordCodec(); }
     internal void RestoreSource(IEncounterHistorySource restored) { lock (gate) { source = restored; distanceRevision++; } }
     internal void Put(EncounterRecord record, byte[] bytes)
     {
@@ -57,7 +59,7 @@ internal sealed class EncounterHistory : IList<EncounterRecord>
             reader = source;
         }
         var result = reader?.Find(runId, kind, id);
-        if (result != null) lock (gate) Remember((runId, kind, id), new ProfileRecordCodec().Encode(result));
+        if (result != null) lock (gate) Remember((runId, kind, id), codec.Encode(result));
         return result;
     }
     internal IEnumerable<EncounterRecord> Read(string? runId = null, EncounterRecordKind? kind = null)

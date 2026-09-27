@@ -19,7 +19,7 @@ internal static class NativeProfileJsonWriter
     internal static void WriteRecord(Stream stream, object value, Type type)
     {
         using var text = new StreamWriter(stream, new UTF8Encoding(false, true), 4096, leaveOpen: true);
-        using var writer = new DecimalScaleWriter(text) { CloseOutput = false };
+        using var writer = new DataContractNumberWriter(text) { CloseOutput = false };
         var serializer = new JsonSerializer
         {
             ContractResolver = contractResolver,
@@ -56,10 +56,39 @@ internal static class NativeProfileJsonWriter
         }
     }
 
-    private sealed class DecimalScaleWriter(TextWriter writer) : JsonTextWriter(writer)
+    private sealed class DataContractNumberWriter(TextWriter writer) : JsonTextWriter(writer)
     {
         // JsonTextWriter adds ".0" to integral decimals. DCS preserves their
         // existing scale, which must survive a read through the unchanged reader.
         public override void WriteValue(decimal value) => WriteRawValue(value.ToString(CultureInfo.InvariantCulture));
+
+        // Unity Mono's DCS reader takes a short-decimal fast path that can move a
+        // double by one ULP (29.235182 is a captured example). An exponent selects
+        // its ordinary round-trip parser without changing the numeric JSON value.
+        // G17/G9 also avoid Mono R formatting that can round-trip only on Mono,
+        // but decode to adjacent bits on modern .NET. Keep the full source precision
+        // across readers and keep exact equality in encounter-prefix validation.
+        public override void WriteValue(double value)
+        {
+            if (!double.IsFinite(value)) { base.WriteValue(value); return; }
+            WriteFloating(value == 0 && BitConverter.DoubleToInt64Bits(value) < 0
+                ? "-0" : value.ToString("G17", CultureInfo.InvariantCulture));
+        }
+
+        public override void WriteValue(float value)
+        {
+            if (!float.IsFinite(value)) { base.WriteValue(value); return; }
+            WriteFloating(value == 0 && BitConverter.SingleToInt32Bits(value) < 0
+                ? "-0" : value.ToString("G9", CultureInfo.InvariantCulture));
+        }
+
+        public override void WriteValue(double? value)
+        { if (value.HasValue) WriteValue(value.Value); else WriteNull(); }
+
+        public override void WriteValue(float? value)
+        { if (value.HasValue) WriteValue(value.Value); else WriteNull(); }
+
+        private void WriteFloating(string value) => WriteRawValue(
+            value.Contains('E') || value.Contains('e') ? value : value + "e0");
     }
 }

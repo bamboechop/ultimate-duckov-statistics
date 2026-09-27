@@ -19,6 +19,13 @@ internal static class UiText
     private static readonly Dictionary<string, string> English =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["ui.results_time"] = "Raid time",
+            ["ui.results_kills"] = "Your kills",
+            ["ui.results_net_value"] = "Estimated net value",
+            ["ui.results_partial"] = "partial",
+            ["ui.results_estimate"] = "Wallet + carried/pet item value (50% raw value), since raid start. Not actual sale proceeds.",
+            ["ui.results_missing_value"] = "Value unavailable: a complete start/end inventory observation is required.",
+            ["ui.results_death_value"] = "Value unavailable after death: retained items could not be verified.",
             ["ui.game_day"] = "Day {0}",
             ["ui.encounters_details"] = "Details",
             ["ui.encounters_tab"] = "Map & Kills",

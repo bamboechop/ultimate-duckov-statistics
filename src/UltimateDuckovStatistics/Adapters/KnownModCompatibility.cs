@@ -108,22 +108,26 @@ internal static class KnownModCompatibility
     {
         try
         {
-            var expected = assembly.GetName().Name switch
-            {
-                "BecomeVeteran" => ("f86b3a0a-3767-44bc-a545-72252bbf26f4", "a79a3391fe66b2ea0000eb2310e24d512ed77276af0850eb292515c48a8e8b6b"),
-                "FirstPersonCamera" => ("916ebb5c-dc53-4c53-ba0d-a4f672364748", "832be121a23095bc37dba4735b155a3d1e0c8a511eb18d5e992ba91887965cac"),
-                "StorageSearchBar" => ("6d2fdec7-3d42-480f-8fad-c02752e66fc5", "2887f088a6bd99186b855135b0e72a548fbd6f72a17076f69e28dee3b3e205b0"),
-                _ => (string.Empty, string.Empty)
-            };
-            if (expected.Item1.Length == 0 || assembly.IsDynamic
-                || assembly.ManifestModule.ModuleVersionId != Guid.Parse(expected.Item1)
-                || string.IsNullOrWhiteSpace(assembly.Location)) return new(false);
+            if (assembly.IsDynamic || string.IsNullOrWhiteSpace(assembly.Location)) return new(false);
             using var stream = File.OpenRead(assembly.Location);
             using var sha = SHA256.Create();
             var hash = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", string.Empty);
-            return new(string.Equals(hash, expected.Item2, StringComparison.OrdinalIgnoreCase));
+            return new(MatchesInspectedBuild(assembly.GetName().Name, assembly.ManifestModule.ModuleVersionId, hash));
         }
         catch { return new(false); }
+    }
+
+    internal static bool MatchesInspectedBuild(string? assemblyName, Guid moduleId, string hash)
+    {
+        var expected = (assemblyName, moduleId.ToString("D")) switch
+        {
+            ("BecomeVeteran", "f86b3a0a-3767-44bc-a545-72252bbf26f4") => "a79a3391fe66b2ea0000eb2310e24d512ed77276af0850eb292515c48a8e8b6b",
+            ("FirstPersonCamera", "916ebb5c-dc53-4c53-ba0d-a4f672364748") => "832be121a23095bc37dba4735b155a3d1e0c8a511eb18d5e992ba91887965cac",
+            ("FirstPersonCamera", "d5173e49-e754-49ed-88de-b8af2f607f67") => "c7d5b7c7c74bc9ae793ee262bdfd379ffd22b8b8fbe8edfeaaed108620e56835",
+            ("StorageSearchBar", "6d2fdec7-3d42-480f-8fad-c02752e66fc5") => "2887f088a6bd99186b855135b0e72a548fbd6f72a17076f69e28dee3b3e205b0",
+            _ => string.Empty
+        };
+        return expected.Length != 0 && string.Equals(hash, expected, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class VerifiedIdentity

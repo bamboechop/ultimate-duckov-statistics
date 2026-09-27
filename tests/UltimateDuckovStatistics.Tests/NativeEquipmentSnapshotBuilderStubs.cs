@@ -27,6 +27,10 @@ namespace ItemStatsSystem
         public List<Items.Slot> Slots { get; } = new();
         public Inventory? Inventory { get; set; }
         public HashSet<string> Tags { get; } = new(StringComparer.Ordinal);
+        public ItemSetting_Gun? GunSetting { get; set; }
+        public T? GetComponent<T>() where T : class => GunSetting as T;
+        public int Value { get; set; }
+        public float MaxDurability { get; set; }
         public bool UseDurability { get; set; }
         public float Durability { get; set; }
         public bool IsBeingDestroyed { get; private set; }
@@ -495,6 +499,7 @@ public static class SceneInfoCollection
 #pragma warning disable CA1707 // Stubs mirror the installed Duckov native type names exactly.
 public sealed class ItemSetting_Gun
 {
+    public bool LoadingBullets { get; set; }
     public ItemStatsSystem.Item? LoadedBullet { get; set; }
     public ItemStatsSystem.Item? GetCurrentLoadedBullet() => LoadedBullet;
     public int TargetBulletID { get; set; }

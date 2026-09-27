@@ -32,6 +32,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private readonly ProcessLifetimeCleanupOwner<NativeWorldTimeAdapter> worldTimeAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeCraftingAdapter> craftingAdapter = new();
     private NativeStatisticsPanel? statisticsPanel;
+    private NativeExtractionSummary? extractionSummary;
     private NativeGameDayHud? gameDayHud;
     private Encounters.EncounterCaptureHost? encounterCapture;
 #if UDS_PERFORMANCE_DIAGNOSTICS
@@ -300,6 +301,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             combatAttributionAdapter.Assign(newCombatAttributionAdapter);
             newCombatAttributionAdapter.Initialize();
             newRunLifecycleAdapter.SetPlayerDeathObserver(newCombatAttributionAdapter.RecordPlayerDeath);
+            extractionSummary = new NativeExtractionSummary(
+                () => profileCoordinator.CurrentGenerationId, message => Debug.Log($"{LogPrefix} {message}"));
+            newRunLifecycleAdapter.ConfigureResults(
+                extractionSummary.Begin, extractionSummary.Terminal, extractionSummary.Complete, extractionSummary.Reset);
             newRunLifecycleAdapter.Initialize();
             profileCoordinator.ProfileChanging += newRunLifecycleAdapter.InterruptForProfileTransition;
             itemUseAdapter = new NativeItemUseAdapter(
@@ -498,6 +503,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     {
         encounterCapture?.Dispose();
         encounterCapture = null;
+        extractionSummary?.Dispose();
+        extractionSummary = null;
         var profileTransitionsDrained = DrainPendingProfileTransitions("deactivation");
         FlushPendingEconomyHoldings("deactivation");
         FlushPendingEconomy("deactivation");

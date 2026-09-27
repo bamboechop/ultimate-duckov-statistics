@@ -334,6 +334,7 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
 
     public void InterruptForProfileTransition()
     {
+        ResetResults();
         if (callbackLifetime.DisposalStarted)
         {
             return;
@@ -369,6 +370,7 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
 
     public bool TryCleanup()
     {
+        ResetResults();
         callbackLifetime.BeginDisposal();
         baseMovement?.ResetBaseline();
         if (baseMovementDurability?.Invoke() == false) return false;
@@ -491,6 +493,9 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
             return;
         }
 
+        NotifyResults(() => resultsStarted?.Invoke(generationId, tracker.ActiveRunId!,
+            raid.valid && newlyObservedRaidId == raid.ID.ToString(CultureInfo.InvariantCulture)));
+        newlyObservedRaidId = null;
         if (tutorialStart) startedTutorialHost = LevelManager.Instance?.gameObject;
         sampleCadence.Reset();
         checkpointScheduler.Reset();
@@ -527,6 +532,7 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
         }
 
         if (terminalBoundary.HasPendingTerminal) return RetryPendingTerminal();
+        NotifyResults(() => resultsTerminal?.Invoke(TerminalOutcome(kind)));
 
         var now = NowMonotonic();
         var utcNow = DateTime.UtcNow;
@@ -1056,6 +1062,9 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
 
     private void OnNewRaid(RaidUtilities.RaidInfo raid)
     {
+        ResetResults();
+        newlyObservedRaidId = !tracker.IsActive && !terminalBoundary.HasPendingTerminal && !completionBoundary.HasPendingCompletion
+            ? raid.ID.ToString(CultureInfo.InvariantCulture) : null;
         if (completionBoundary.HasPendingCompletion && !RetryPendingCompletion()) return;
         if (terminalBoundary.HasPendingTerminal && !RetryPendingTerminal()) return;
         var utcNow = DateTime.UtcNow;
@@ -1253,6 +1262,7 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
         pendingTerminalReason = null;
         pendingTerminalUsesDetailedDiagnostic = false;
         if (summary == null) return true;
+        NotifyResults(() => resultsCompleted?.Invoke(summary));
 
         sampleCadence.Reset();
         checkpointScheduler.Reset();

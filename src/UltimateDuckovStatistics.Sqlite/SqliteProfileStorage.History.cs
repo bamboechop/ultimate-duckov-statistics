@@ -52,7 +52,7 @@ public sealed partial class SqliteProfileStorage
         historyGeneration = profile.GenerationId;
         profile.Statistics.Runs = new StoredRunHistory(overview, LoadRun);
         if (db.ScalarLong("SELECT count(*) FROM records WHERE kind=33") > 0)
-            profile.EncounterHistory = new Core.Encounters.EncounterHistory(this);
+            profile.EncounterHistory = new Core.Encounters.EncounterHistory(this, codec);
         BaseMovementStatistics.Validate(profile.Statistics.BaseMovement);
         CraftingStatisticsReducer.Validate(profile.Statistics.Crafting);
         if (state.Checkpoint != null) ProfileRepository.ValidateActiveCheckpointForStorage(state.Checkpoint, profile.GenerationId);

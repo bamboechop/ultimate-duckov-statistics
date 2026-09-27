@@ -40,6 +40,21 @@ public sealed class KnownModCompatibilityTests
         Assert.False(KnownModCompatibility.HasInspectedOrder(patch));
     }
 
+    [Theory]
+    [InlineData("916ebb5c-dc53-4c53-ba0d-a4f672364748", "832be121a23095bc37dba4735b155a3d1e0c8a511eb18d5e992ba91887965cac")]
+    [InlineData("d5173e49-e754-49ed-88de-b8af2f607f67", "c7d5b7c7c74bc9ae793ee262bdfd379ffd22b8b8fbe8edfeaaed108620e56835")]
+    public void BothInspectedFirstPersonBuildsRequireMatchingModuleAndBinary(string module, string hash)
+    {
+        var id = Guid.Parse(module);
+        Assert.True(KnownModCompatibility.MatchesInspectedBuild("FirstPersonCamera", id, hash.ToUpperInvariant()));
+        Assert.False(KnownModCompatibility.MatchesInspectedBuild("FirstPersonCamera", Guid.Empty, hash));
+        Assert.False(KnownModCompatibility.MatchesInspectedBuild("FirstPersonCamera", id, new string('0', 64)));
+        Assert.False(KnownModCompatibility.MatchesInspectedBuild("OtherCamera", id, hash));
+        var otherModule = module.StartsWith("916", StringComparison.Ordinal)
+            ? Guid.Parse("d5173e49-e754-49ed-88de-b8af2f607f67") : Guid.Parse("916ebb5c-dc53-4c53-ba0d-a4f672364748");
+        Assert.False(KnownModCompatibility.MatchesInspectedBuild("FirstPersonCamera", otherModule, hash));
+    }
+
     private sealed class PatchMetadata
     {
         public PatchMetadata(MethodInfo method, int priority = 400, string[]? before = null, string[]? after = null)

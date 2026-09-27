@@ -31,6 +31,8 @@ The [native contract documents](docs/M17_NATIVE_CONTRACTS.md) and [M18 removal i
 
 Version 1.3.0 includes optional [First Person Camera, Become Veteran and Storage Search Bar compatibility](docs/MOD_COMPATIBILITY.md), preserving native behavior when their integration paths are inactive. Shared combat buff observation runs independently of healing attribution. Compatibility is limited to the inspected builds and callbacks; unknown patches and runtime changes can still disable affected recording. Enable Harmony and optional mods before UDS, then restart Duckov after changing the enabled mod set. The compatibility document separates completed gameplay checks from broader native checks and known limitations.
 
+Current source also adds a consistent [results-screen summary](docs/EXTRACTION_SUMMARY.md) for active raid time, proven player kills and estimated net value. The estimate uses carried/equipped/pet items and wallet changes; death value remains unavailable without proven retained items. Native visual/gameplay qualification remains separate from the published v1.3.0 release.
+
 ## Local data and current format
 
 The first public format baseline is `uds-profile-v1`, **schema 1**, with data below `%USERPROFILE%/AppData/LocalLow/TeamSoda/Duckov/UltimateDuckovStatistics/v1/`. This deliberately starts fresh from the schema-18 development/RC profiles; they are incompatible and are not converted. If left on disk, the mod archives them intact and creates fresh statistics. Older `0.x` data is not imported or deleted. Clean installation and valid schema-1 reinstallation are supported; no development-data migration code ships. Incompatible/future profiles remain protected. Schema revisions follow stored-format changes independently of release versions.

@@ -1,4 +1,5 @@
 using System.Reflection;
+using UltimateDuckovStatistics.Core.Encounters;
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Diagnostics;
@@ -587,6 +588,88 @@ public sealed class RetainedDiagnosticsTests
             Saves.SavesSystem.ResetNativeState();
             UnityEngine.Application.persistentDataPath = priorDataPath;
         }
+    }
+
+    [Fact]
+    public void EncounterPublicationFailureSurvivesUnrelatedSuccessAndClearsOnItsOwnRetry()
+    {
+        using var directory = new TemporaryDirectory();
+        var priorDataPath = UnityEngine.Application.persistentDataPath;
+        UnityEngine.Application.persistentDataPath = directory.Path;
+        Saves.SavesSystem.ResetNativeState();
+        try
+        {
+            using var coordinator = new NativeProfileCoordinator(() => 0, repositoryFactory: NativeJsonRepositoryFixture.Create);
+            coordinator.Initialize();
+            var generation = coordinator.CurrentGenerationId;
+            var visit = new EncounterRecord
+            {
+                RunId = "run", Id = "visit", VisitId = "visit", Kind = EncounterRecordKind.Visit,
+                Visit = new EncounterVisit { MapId = "map", SegmentId = "segment" }
+            };
+            var route = new EncounterRecord
+            {
+                RunId = "run", Id = "visit/0", VisitId = "visit", Kind = EncounterRecordKind.Route,
+                Route = new EncounterRouteChunk { Points = new() { new EncounterRoutePoint
+                    { Position = new EncounterPosition { X = 1, MapId = "map" }, Connection = RouteConnection.Start } } }
+            };
+            Assert.True(coordinator.HandleEncounter(generation, visit));
+            Assert.True(coordinator.HandleEncounter(generation, route));
+            route.Route.Points[0].Position.X = 2; // A real immutable-prefix rejection.
+            Assert.False(coordinator.HandleEncounter(generation, route));
+            Assert.True(coordinator.HasProfilePersistenceFailure);
+            Assert.True(coordinator.HandleEncounter(generation, visit)); // Another accepted record is not recovery.
+            Assert.True(coordinator.HasProfilePersistenceFailure);
+            Assert.True(coordinator.HandleWorldTime(new WorldTimeMutation(0, TimeSpan.TicksPerSecond, 0, 0)));
+            Assert.True(coordinator.RequestWorldTimePersistence());
+            var state = coordinator.TickProfilePersistence();
+            Assert.True(SpinWait.SpinUntil(() =>
+            {
+                if (state != DeferredWriteState.Pending) return true;
+                state = coordinator.TickProfilePersistence();
+                return state != DeferredWriteState.Pending;
+            }, TimeSpan.FromSeconds(5)));
+            Assert.Equal(DeferredWriteState.Succeeded, state);
+            Assert.True(coordinator.HasProfilePersistenceFailure);
+            var profile = Profile(generation); profile.Revision = coordinator.Current!.Revision;
+            var runtime = Runtime(generation);
+            runtime.SaveReceipt = coordinator.LastSaveReceipt;
+            runtime.ProfilePersistenceFailed = coordinator.HasProfilePersistenceFailure;
+            // No log dependency: throttling and a newer successful write cannot hide a rejected publication.
+            var failed = Present(profile, runtime);
+            Assert.Equal(DiagnosticsHealth.Error, failed.Health);
+            Assert.Equal(DiagnosticsHealth.Error, failed.Systems.Single(s => s.Id == "storage").Health);
+            Assert.Equal(DiagnosticsHealth.Working, failed.Systems.Single(s => s.Id == "combat").Health);
+            Assert.Contains(UiText.Get("ui.diag_storage_issue_detail"), failed.BannerDetail, StringComparison.Ordinal);
+            route.Route.Points[0].Position.X = 1;
+            Assert.True(coordinator.HandleEncounter(generation, route));
+            Assert.False(coordinator.HasProfilePersistenceFailure);
+            runtime.ProfilePersistenceFailed = coordinator.HasProfilePersistenceFailure;
+            Assert.Equal(DiagnosticsHealth.Working, Present(profile, runtime).Health);
+            route.Route.Points[0].Position.X = 2;
+            Assert.False(coordinator.HandleEncounter(generation, route));
+            Assert.True(coordinator.HasProfilePersistenceFailure);
+            Assert.Single(coordinator.DiagnosticEntries, e => e.Message.StartsWith("Encounter journal publication", StringComparison.Ordinal));
+            route.Route.Points[0].Position.X = 1;
+            Assert.True(coordinator.HandleEncounter(generation, route));
+        }
+        finally
+        {
+            Saves.SavesSystem.ResetNativeState();
+            UnityEngine.Application.persistentDataPath = priorDataPath;
+        }
+    }
+
+    [Theory]
+    [InlineData("Encounter journal publication remains pending: ArgumentException: Recorded route samples cannot change.")]
+    [InlineData("Native-save profile boundary failed: IOException: Native-save profile durability remains pending.")]
+    public void PublicationBoundaryErrorsPreventAWorkingBanner(string message)
+    {
+        var runtime = Runtime(); runtime.Entries = new[] { Entry(1, "Error", message) };
+        var presentation = Present(Profile(), runtime);
+        Assert.Equal(DiagnosticsHealth.Error, presentation.Health);
+        Assert.Equal(UiText.Get("ui.diag_storage_issue"), Assert.Single(presentation.Issues).Title);
+        Assert.Contains(UiText.Get("ui.diag_storage_issue_detail"), presentation.BannerDetail, StringComparison.Ordinal);
     }
 
     [Fact]

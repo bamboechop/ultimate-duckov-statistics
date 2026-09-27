@@ -6,6 +6,13 @@ internal static class GermanText
     // The English table remains the fallback and source of truth for key coverage.
     public static IReadOnlyDictionary<string, string> All { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["ui.results_time"] = "Raid-Dauer",
+        ["ui.results_kills"] = "Deine Eliminierungen",
+        ["ui.results_net_value"] = "Geschätzter Nettowert",
+        ["ui.results_partial"] = "unvollständig",
+        ["ui.results_estimate"] = "Geldkonto + getragene Items/Tierinventar (50 % Rohwert), seit Raid-Beginn. Kein tatsächlicher Verkaufserlös.",
+        ["ui.results_missing_value"] = "Wert nicht verfügbar: Vollständige Inventarbeobachtung zu Beginn und Ende erforderlich.",
+        ["ui.results_death_value"] = "Wert nach dem Tod nicht verfügbar: Behaltene Items konnten nicht verifiziert werden.",
         ["ui.game_day"] = "Tag {0}",
         ["ui.encounters_details"] = "Details",
         ["ui.encounters_tab"] = "Karte & Kills",
@@ -632,7 +639,7 @@ internal static class GermanText
         ["ui.diag_clipboard_failed"] = "Exportpfad konnte nicht kopiert werden",
         ["ui.diag_clipboard_failed_detail"] = "Der Export wurde abgeschlossen, aber sein Pfad konnte nicht in die Zwischenablage kopiert werden. Der Exportpfad bleibt unter Daten und Einstellungen sichtbar.",
         ["ui.diag_storage_issue"] = "Profilspeicher benötigt Aufmerksamkeit",
-        ["ui.diag_storage_issue_detail"] = "Eine Statistik-Speicherung ist fehlgeschlagen. Ausstehende Daten bleiben für einen erneuten Versuch erhalten. Setze das Profil nicht zurück; prüfe den verfügbaren Speicherplatz und Player.log.",
+        ["ui.diag_storage_issue_detail"] = "UDS konnte die aufgezeichneten Statistiken nicht vollständig speichern. Ausstehende Daten bleiben für einen erneuten Versuch erhalten; neueste Raids werden möglicherweise erst danach angezeigt. Siehe Letzte Probleme und Player.log.",
         ["ui.diag_recent_warning"] = "UDS benötigt Aufmerksamkeit",
         ["ui.diag_reset_title"] = "UDS-Profil zurücksetzen?",
         ["ui.diag_reset_body"] = "Die derzeit mit {0} verbundenen Statistiken werden archiviert und ein neues, leeres UDS-Profil wird gestartet.\nDeine Escape-from-Duckov-Speicherdaten werden nicht geändert. Die vorherige UDS-Generation bleibt im UDS-Datenordner schreibgeschützt archiviert.",

@@ -2,6 +2,12 @@
 
 [GitHub 1.3.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.3.0) was published on September 23, 2026, including optional-mod compatibility and native base pause merged through [PR #31](https://github.com/bamboechop/ultimate-duckov-statistics/pull/31). M0-M18 and the scoped playtest follow-ups below are complete, including performance, storage, export/restore, encounter history, kill-distance highlights and retained UI. The first Workshop listing and subscription-install verification remain pending. [Release notes](RELEASE_NOTES.md) describe the scope; the [release procedure](docs/RELEASE_PROCESS.md) covers publication and Workshop installation. The milestone specifications and earlier delivery facts below are historical context, not a queue to repeat completed work. Remaining compatibility checks and the known healing-notice wording issue are called out below.
 
+## Results screen summary
+
+- [x] Implemented an owned native results block for active raid time, proven player kills and estimated net value, with English/German text and bounded process-local capture. See [calculation and lifecycle boundaries](docs/EXTRACTION_SUMMARY.md).
+- [x] Native extraction layout, populated results and recording corrections accepted by the user on September 27, 2026, with German and English tested.
+- [ ] Native death-screen behavior remains an unconfirmed check. Disable overlapping results mods for unified-layout testing; this feature does not modify their settings.
+
 ## Current playtest follow-ups — 2026-09-11
 
 These reports originated with the completed 23-minute, five-map raid and the return to base. The scoped fixes and storage follow-ups were completed by 2026-09-13. Entries distinguish automated validation, native acceptance and remaining limits; completion does not imply that every observed game hitch was attributed to UDS or eliminated.
