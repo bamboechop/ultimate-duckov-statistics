@@ -13,6 +13,8 @@ namespace UltimateDuckovStatistics.UI;
 /// <summary>Owns only the extra results block; never opens/closes the native view or handles Continue.</summary>
 internal sealed class NativeExtractionSummary : IDisposable
 {
+    private const int SummaryTopInset = 24;
+    private const float SummaryHeight = 150 + SummaryTopInset;
     private readonly ExtractionSummarySession session = new();
     private readonly Func<string> generation;
     private readonly Action<string> diagnostic;
@@ -76,12 +78,15 @@ internal sealed class NativeExtractionSummary : IDisposable
             root.transform.SetParent(content, false);
             root.transform.SetSiblingIndex(exp.GetSiblingIndex());
             var rect = (RectTransform)root.transform;
-            rect.sizeDelta = new Vector2(900, 150);
+            rect.sizeDelta = new Vector2(900, SummaryHeight);
             var size = root.GetComponent<LayoutElement>();
             // Duckov's full-height Content centers non-expanding children. A preferred height
             // alone does not override the group's flexible height (LayoutElement defaults to -1).
-            size.minHeight = 150; size.preferredHeight = 150; size.flexibleWidth = 1; size.flexibleHeight = 0;
+            size.minHeight = SummaryHeight; size.preferredHeight = SummaryHeight; size.flexibleWidth = 1; size.flexibleHeight = 0;
             var layout = root.GetComponent<VerticalLayoutGroup>();
+            // Separate the metrics from the native death badge (whose decoration extends
+            // below its layout row), balancing the existing note-to-EXP card gap.
+            layout.padding.top = SummaryTopInset;
             layout.spacing = 8; layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childControlWidth = true; layout.childControlHeight = true;
             layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
