@@ -13,7 +13,7 @@ public sealed partial class ProfileRepository
         {
             var source = incrementalStorage as IEncounterHistorySource
                 ?? (Current.EncounterHistory == null ? null : new MemoryEncounterHistorySource(Current.EncounterHistory));
-            history = new EncounterHistory(source);
+            history = new EncounterHistory(source, recordCodec);
         }
         var previous = history.Find(record.RunId, record.Kind, record.Id);
         if (previous != null) EncounterRecordValidation.ValidateReplacement(previous, record);
