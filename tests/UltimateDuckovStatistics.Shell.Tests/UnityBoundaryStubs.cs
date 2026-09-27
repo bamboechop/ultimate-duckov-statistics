@@ -144,7 +144,7 @@ namespace UnityEngine
             .Where(value => value is not Object native || !native.Destroyed).ToArray();
     }
     public static class Mathf { public static float Max(float a, float b) => Math.Max(a, b); public static float Min(float a, float b) => Math.Min(a, b); public static float Clamp(float x, float a, float b) => Math.Clamp(x, a, b); public static int RoundToInt(float v) => (int)Math.Round(v); public static bool Approximately(float a, float b) => Math.Abs(a - b) < .0001; }
-    public enum KeyCode { None, F5, F6, F8, F9, F10, Escape, Tab, LeftShift, RightShift, LeftControl, RightControl, Return, KeypadEnter, Mouse0, Mouse1, S, K, LeftAlt, RightAlt, AltGr, LeftWindows, RightWindows, LeftCommand, RightCommand, LeftArrow, RightArrow, UpArrow, DownArrow, Space, JoystickButton0 }
+    public enum KeyCode { None, F5, F6, F8, F9, F10, Escape, Tab, LeftShift, RightShift, LeftControl, RightControl, Return, KeypadEnter, Mouse0, Mouse1, Mouse2, Mouse3, Mouse4, Mouse5, Mouse6, S, K, LeftAlt, RightAlt, AltGr, LeftWindows, RightWindows, LeftCommand, RightCommand, LeftArrow, RightArrow, UpArrow, DownArrow, Space, JoystickButton0 }
     public static class Input { public static readonly HashSet<KeyCode> Down = new(); public static readonly HashSet<KeyCode> Held = new(); public static bool GetKeyDown(KeyCode key) => Down.Contains(key); public static bool GetKey(KeyCode key) => Down.Contains(key) || Held.Contains(key); public static bool anyKeyDown => Down.Count > 0; public static bool anyKey => Down.Count > 0 || Held.Count > 0; }
     public enum CursorLockMode { None, Locked, Confined }
     public static class Cursor { public static bool visible; public static CursorLockMode lockState; }

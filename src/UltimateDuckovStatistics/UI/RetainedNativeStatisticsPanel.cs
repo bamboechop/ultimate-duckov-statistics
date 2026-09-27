@@ -521,6 +521,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
         if (!Input.anyKeyDown || Time.frameCount == hotkeyCaptureFrame) return;
         foreach (var candidate in HotkeyCandidates)
         {
+            // Pointer presses belong to the modal controls. Adding a warning on
+            // mouse-down moves Cancel before mouse-up and makes the click miss.
+            if (candidate >= KeyCode.Mouse0 && candidate <= KeyCode.Mouse6) continue;
             if (!Input.GetKeyDown(candidate) || NativePanelHotkeyInput.IsModifier(candidate)) continue;
             if (!PanelHotkeyPolicy.IsAllowed(candidate.ToString()) || NativePanelHotkeyInput.UnsupportedModifiers)
             { hotkeyWarning = UiText.Get("ui.diag_hotkey_invalid"); return; }

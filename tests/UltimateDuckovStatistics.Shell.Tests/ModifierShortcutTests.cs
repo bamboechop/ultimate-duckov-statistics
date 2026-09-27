@@ -307,6 +307,61 @@ public sealed partial class ShellAccessTests
         Assert.Equal("Ctrl+Shift+K", Field<PanelHotkey>(panel, "hotkey").ToString());
     }
 
+    [Theory]
+    [InlineData(KeyCode.Mouse0)]
+    [InlineData(KeyCode.Mouse1)]
+    [InlineData(KeyCode.Mouse6)]
+    public void MouseButtonsDoNotBecomeShortcutCandidatesOrChangeCaptureWarning(KeyCode mouse)
+    {
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        BeginCapture(panel);
+        Press(panel, mouse);
+        Assert.True(Field<bool>(panel, "capturingHotkey"));
+        Assert.Empty(Field<string>(panel, "hotkeyWarning"));
+        Assert.Equal("F8", Field<PanelHotkey>(panel, "hotkey").ToString());
+        SetHeldModifiers(3);
+        Press(panel, KeyCode.S);
+        Assert.False(Field<bool>(panel, "capturingHotkey"));
+        Assert.Equal("Ctrl+Alt+S", Field<PanelHotkey>(panel, "hotkey").ToString());
+    }
+
+    [Theory]
+    [InlineData(SystemLanguage.English)]
+    [InlineData(SystemLanguage.German)]
+    public void CancelRemainsUnderPointerAndClosesCaptureOnFirstClick(SystemLanguage language)
+    {
+        try
+        {
+            LocalizationManager.SetLanguage(language);
+            using var panel = new NativeStatisticsPanel(coordinator);
+            Press(panel, KeyCode.F8);
+            BeginCapture(panel);
+            var modalRoot = Find("UDSOperationModal");
+            var cancel = Assert.Single(GameObject.Live, go => go.name == "Cancel"
+                && go.transform.IsChildOf(modalRoot.transform)).GetComponent<Button>();
+            var rect = (RectTransform)cancel.transform;
+            var position = rect.anchoredPosition;
+            var size = rect.sizeDelta;
+            var settingsBefore = File.ReadAllText(Path.Combine(fixtureRoot, "settings.json"));
+
+            // Dispatch mouse-down before the native button's release/click event.
+            // A capture warning here used to move Cancel out from under the pointer.
+            Press(panel, KeyCode.Mouse0);
+            Assert.Equal(position, rect.anchoredPosition);
+            Assert.Equal(size, rect.sizeDelta);
+            Assert.Empty(Field<string>(panel, "hotkeyWarning"));
+            Assert.True(cancel.interactable);
+            cancel.onClick.Invoke();
+            Tick(panel);
+
+            Assert.False(Field<bool>(panel, "capturingHotkey"));
+            Assert.False(modalRoot.activeSelf);
+            Assert.True(Find(RetainedDimmerPolicy.RootName).activeInHierarchy);
+            Assert.Equal(settingsBefore, File.ReadAllText(Path.Combine(fixtureRoot, "settings.json")));
+        }
+        finally { LocalizationManager.SetLanguage(SystemLanguage.English); }
+    }
     private void SaveBinding(string value) => new AtomicJsonStore<UserSettings>().Save(Path.Combine(fixtureRoot, "settings.json"), new UserSettings { PanelHotkey = value });
     private static void BeginCapture(NativeStatisticsPanel panel)
     {
