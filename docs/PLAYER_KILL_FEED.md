@@ -33,15 +33,17 @@ Scene/save transitions and disposal clear the feed. Native HUD visibility contro
 
 Automated tests cover player-only filtering, verified headshots, incoming deaths, finite/map-matched distance, bounded queue/expiry, settings round trips and shortcut preservation. Production callback tests cover position capture before corpse movement, recording failure independence, callback exception isolation and the public-death/health-postfix sequence. Source-linked HUD tests cover native anchor bounds, hidden storm fallback, right alignment and offsets, localization, passive input, expiry, bounded discovery, scene/save changes, destroyed UI recovery and cleanup.
 
-Unity/TMP, Steam and GPU boundaries in those tests are simulated. In-game appearance, icon rendering, placement under the real storm bar, FPC/third-person play, and frame-time impact require native testing.
+Unity/TMP, Steam and GPU boundaries in those tests are simulated. Native gameplay acceptance is recorded separately below; the automated tests do not measure real rendering or frame times.
 
 Local checks on 2026-09-27 passed 2,562 core tests and 208 shell tests in both Debug and Release, plus 210 shell tests with both diagnostic flags enabled. Ordinary Release and combined-diagnostic Debug native builds completed with no warnings or errors. The installed contract probe and ordinary 13-file package audit passed. These checks do not constitute native visual acceptance.
 
 The subsequent row-layout correction passed 211 Release shell tests and a zero-warning native Release build. Its regressions check native background/padding reuse, measured distance-label bounds and vertical centering with distance enabled or hidden. Inspection of the installed Storm prefab found black at alpha 109/255 and radius 15; live components supply those values to the feed instead of independent styling constants.
 
-The silhouette-sizing update passed 216 Release shell tests and a zero-warning native Release build. Added checks cover transparent-margin trimming without dropping faint edges, empty/single-pixel bounds, and wider weapons with preserved proportions, centered distance captions and unchanged row height. Actual GPU icon appearance remains part of the native check below.
+The silhouette-sizing update passed 216 Release shell tests and a zero-warning native Release build. Added checks cover transparent-margin trimming without dropping faint edges, empty/single-pixel bounds, and wider weapons with preserved proportions, centered distance captions and unchanged row height.
 
-Native test checklist:
+On 2026-09-27, the user accepted the final in-game layout and confirmed the planned gameplay checks below. Screenshots show pistol/rifle sizing, distances, headshot and body-shot entries, a six-entry feed, and the correctly ordered German player-death entry. The user also confirmed expiry/NPC filtering, settings persistence, and third-person/map-transition cleanup. This records user gameplay acceptance, not an instrumented frame-time benchmark.
+
+Reusable native test checklist:
 
 1. Disable CS Like Kill Feed and restart Duckov with this UDS build. Keep the normal mod set, including FPC if desired.
 2. Check the settings section in English and German. Change a setting, reopen UDS and restart once to check persistence; the panel shortcut must remain unchanged.
