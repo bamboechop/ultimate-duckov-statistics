@@ -1,6 +1,6 @@
 # Restore statistics from an export
 
-Current source adds **Restore statistics** to Diagnostics. It accepts the schema-1 UTF-8 `statistics.json` export and the current `statistics.zip` containing exactly that one root entry. This is an explicit replacement of the selected save slot's UDS statistics. It does not merge histories, restore Duckov's save, or resume an interrupted raid.
+Diagnostics provides **Restore statistics** in released UDS builds. It accepts the schema-1 UTF-8 `statistics.json` export and the current `statistics.zip` containing exactly that one root entry. This is an explicit replacement of the selected save slot's UDS statistics. It does not merge histories, restore Duckov's save, or resume an interrupted raid.
 
 ## In-game workflow
 
