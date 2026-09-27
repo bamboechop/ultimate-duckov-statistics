@@ -6,6 +6,7 @@ using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.UI;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.UI.ProceduralImage;
 using Xunit;
 using NativeObject = UnityEngine.Object;
 
@@ -58,6 +59,63 @@ public sealed class NativePlayerKillFeedHudTests : IDisposable
         Assert.Equal(1.5f, root.localScale.x);
         var row = root.GetChild(0) as RectTransform;
         Assert.Equal(-row!.sizeDelta.x, row.anchoredPosition.x);
+    }
+
+    [Fact]
+    public void RowsBorrowNativeStormAppearanceWithoutChangingItsComponents()
+    {
+        var nativeBackground = storm.gameObject.AddComponent<ProceduralImage>();
+        nativeBackground.raycastTarget = true;
+        nativeBackground.color = new Color(.12f, .2f, .3f, .427f);
+        nativeBackground.FalloffDistance = 1.5f; nativeBackground.BorderWidth = .5f;
+        var nativeRadius = storm.gameObject.AddComponent<UniformModifier>(); nativeRadius.Radius = 17;
+        var nativeLayout = storm.gameObject.AddComponent<HorizontalLayoutGroup>();
+        nativeLayout.padding = new RectOffset(11, 19, 7, 9);
+        hud.Record(Kill("1"), 15.65); hud.Tick();
+        var row = (RectTransform)Root().GetChild(0);
+        var background = row.GetComponent<ProceduralImage>();
+        Assert.Equal(nativeBackground.color, background.color);
+        Assert.Equal(1.5f, background.FalloffDistance); Assert.Equal(.5f, background.BorderWidth);
+        Assert.Equal(17, row.GetComponent<UniformModifier>().Radius);
+        Assert.Equal(11, Label("Attacker").rectTransform.anchoredPosition.x);
+        var last = Label("Victim").rectTransform;
+        Assert.Equal(19, row.sizeDelta.x - last.anchoredPosition.x - last.sizeDelta.x);
+        var weapon = (RectTransform)row.Find("Weapon")!;
+        Assert.Equal(7, -weapon.anchoredPosition.y);
+        var distance = Label("Distance").rectTransform;
+        Assert.Equal(9, row.sizeDelta.y + distance.anchoredPosition.y - distance.sizeDelta.y);
+        Assert.True(nativeBackground.raycastTarget); Assert.Equal(.427f, nativeBackground.color.a);
+        Assert.False(background.raycastTarget); Assert.False(nativeBackground.Destroyed);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void DistanceFitsMeasuredLineAndRowCentersAllColumns(bool showDistance)
+    {
+        settings = settings with { ShowDistance = showDistance };
+        hud.Record(Kill("1"), 35.29); hud.Tick();
+        var row = (RectTransform)Root().GetChild(0);
+        var distance = Label("Distance");
+        var weapon = (RectTransform)row.Find("Weapon")!;
+        var center = row.sizeDelta.y / 2;
+        foreach (var name in new[] { "Attacker", "Victim", "Headshot" })
+        {
+            var child = (RectTransform)row.Find(name)!;
+            Assert.Equal(center, -child.anchoredPosition.y + child.sizeDelta.y / 2);
+        }
+        Assert.Equal(showDistance, distance.gameObject.activeSelf);
+        if (showDistance)
+        {
+            // Even the fixture's modest 1.2x line height exceeds the old 20-unit box.
+            Assert.True(distance.preferredHeight > 20);
+            Assert.True(distance.rectTransform.sizeDelta.y >= distance.preferredHeight);
+            Assert.True(distance.rectTransform.sizeDelta.x >= distance.preferredWidth);
+            Assert.Equal(TextOverflowModes.Overflow, distance.overflowMode);
+            Assert.True(-distance.rectTransform.anchoredPosition.y > -weapon.anchoredPosition.y + weapon.sizeDelta.y);
+            Assert.True(row.sizeDelta.y >= -distance.rectTransform.anchoredPosition.y + distance.rectTransform.sizeDelta.y + 5);
+        }
+        else Assert.Equal(52, row.sizeDelta.y); // Only icon height and the native top/bottom padding.
     }
 
     [Fact]

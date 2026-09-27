@@ -135,7 +135,7 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
             var group = root.gameObject.AddComponent<CanvasGroup>();
             group.interactable = false; group.blocksRaycasts = false;
             root.gameObject.SetActive(false);
-            for (var i = 0; i < 6; i++) rows.Add(new Row(root, display.weatherText));
+            for (var i = 0; i < 6; i++) rows.Add(new Row(root, display.weatherText, display.stormRoot));
             discoveryAttempts = 0;
             return;
         }
@@ -185,19 +185,38 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
         internal CanvasGroup Group { get; }
         private readonly TextMeshProUGUI first, last, distance, unknownWeapon;
         private readonly Image weapon, headshot;
+        private readonly float paddingLeft, paddingRight, paddingTop, paddingBottom;
         private KillFeedEntry? bound;
         private float lastAvailableWidth;
 
-        internal Row(RectTransform parent, TextMeshProUGUI template)
+        internal Row(RectTransform parent, TextMeshProUGUI template, GameObject? storm)
         {
             Root = Node(parent, "Entry");
             var background = Root.gameObject.AddComponent<ProceduralImage>();
-            background.color = new Color(0, 0, 0, .55f); background.raycastTarget = false;
-            Root.gameObject.AddComponent<UniformModifier>().Radius = 12;
+            // Borrow native styling, never mutate the storm's components/material.
+            // Defaults below are the inspected 2.3.30 Storm prefab values.
+            var nativeBackground = storm != null ? storm.GetComponent<ProceduralImage>() : null;
+            var nativeRadius = storm != null ? storm.GetComponent<UniformModifier>() : null;
+            var nativeLayout = storm != null ? storm.GetComponent<HorizontalLayoutGroup>() : null;
+            background.color = nativeBackground != null ? nativeBackground.color : new Color32(0, 0, 0, 109);
+            background.raycastTarget = false;
+            if (nativeBackground != null)
+            {
+                background.FalloffDistance = nativeBackground.FalloffDistance;
+                background.BorderWidth = nativeBackground.BorderWidth;
+            }
+            Root.gameObject.AddComponent<UniformModifier>().Radius = nativeRadius != null ? nativeRadius.Radius : 15;
+            paddingLeft = nativeLayout != null ? nativeLayout.padding.left : 15;
+            paddingRight = nativeLayout != null ? nativeLayout.padding.right : 20;
+            paddingTop = nativeLayout != null ? nativeLayout.padding.top : 5;
+            paddingBottom = nativeLayout != null ? nativeLayout.padding.bottom : 5;
             Group = Root.gameObject.AddComponent<CanvasGroup>();
             first = Text("Attacker", 24); last = Text("Victim", 24);
             distance = Text("Distance", 18); unknownWeapon = Text("UnknownWeapon", 24);
             distance.alignment = unknownWeapon.alignment = TextAlignmentOptions.Center;
+            // This short, measured caption must not disappear when TMP's line metrics
+            // exceed a guessed font-size-based rectangle.
+            distance.overflowMode = TextOverflowModes.Overflow;
             weapon = Node(Root, "Weapon").gameObject.AddComponent<Image>();
             headshot = Node(Root, "Headshot").gameObject.AddComponent<Image>();
             weapon.raycastTarget = headshot.raycastTarget = false;
@@ -234,18 +253,28 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
             weapon.sprite = icons.Weapon(entry.WeaponId);
             weapon.gameObject.SetActive(weapon.sprite != null);
             unknownWeapon.gameObject.SetActive(weapon.sprite == null); unknownWeapon.text = "—";
-            var weaponWidth = Math.Max(48, Math.Min(96, distance.GetPreferredValues(distance.text).x + 8));
-            var nameLimit = Math.Max(32, Math.Min(260, (availableWidth - weaponWidth - (showHeadshot ? 36 : 0) - 48) / 2));
-            var a = Math.Min(nameLimit, first.GetPreferredValues(first.text).x);
-            var b = Math.Min(nameLimit, last.GetPreferredValues(last.text).x);
-            var x = 12f;
-            Place(first.rectTransform, x, 4, a, 40); x += a + 8;
-            Place(weapon.rectTransform, x + (weaponWidth - 42) / 2, 2, 42, 42);
-            Place(unknownWeapon.rectTransform, x, 4, weaponWidth, 40);
-            Place(distance.rectTransform, x, 42, weaponWidth, 20); x += weaponWidth + 8;
-            if (showHeadshot) { Place(headshot.rectTransform, x, 10, 28, 28); x += 36; }
-            Place(last.rectTransform, x, 4, b, 40);
-            Root.sizeDelta = new Vector2(x + b + 12, showDistance ? 66 : 48);
+            var measuredDistance = distance.GetPreferredValues(distance.text);
+            var distanceHeight = showDistance ? (float)Math.Ceiling(measuredDistance.y) + 2 : 0;
+            var weaponWidth = Math.Max(48, showDistance ? (float)Math.Ceiling(measuredDistance.x) + 4 : 0);
+            var nameLimit = Math.Max(32, Math.Min(260, (availableWidth - weaponWidth - (showHeadshot ? 36 : 0)
+                - paddingLeft - paddingRight - 16) / 2));
+            var firstSize = first.GetPreferredValues(first.text);
+            var lastSize = last.GetPreferredValues(last.text);
+            var a = Math.Min(nameLimit, (float)Math.Ceiling(firstSize.x) + 2);
+            var b = Math.Min(nameLimit, (float)Math.Ceiling(lastSize.x) + 2);
+            var firstHeight = (float)Math.Ceiling(firstSize.y) + 2;
+            var lastHeight = (float)Math.Ceiling(lastSize.y) + 2;
+            var weaponHeight = 42 + (showDistance ? 2 + distanceHeight : 0);
+            var contentHeight = Math.Max(weaponHeight, Math.Max(firstHeight, lastHeight));
+            var weaponTop = paddingTop + (contentHeight - weaponHeight) / 2;
+            var x = paddingLeft;
+            Place(first.rectTransform, x, paddingTop + (contentHeight - firstHeight) / 2, a, firstHeight); x += a + 8;
+            Place(weapon.rectTransform, x + (weaponWidth - 42) / 2, weaponTop, 42, 42);
+            Place(unknownWeapon.rectTransform, x, weaponTop, weaponWidth, 42);
+            Place(distance.rectTransform, x, weaponTop + 44, weaponWidth, distanceHeight); x += weaponWidth + 8;
+            if (showHeadshot) { Place(headshot.rectTransform, x, paddingTop + (contentHeight - 28) / 2, 28, 28); x += 36; }
+            Place(last.rectTransform, x, paddingTop + (contentHeight - lastHeight) / 2, b, lastHeight);
+            Root.sizeDelta = new Vector2(x + b + paddingRight, paddingTop + contentHeight + paddingBottom);
         }
     }
 }
