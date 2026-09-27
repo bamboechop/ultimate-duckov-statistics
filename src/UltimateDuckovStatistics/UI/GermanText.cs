@@ -13,6 +13,7 @@ internal static class GermanText
         ["ui.results_estimate"] = "Geldkonto + getragene Items/Tierinventar (50 % Rohwert), seit Raid-Beginn. Kein tatsächlicher Verkaufserlös.",
         ["ui.results_missing_value"] = "Wert nicht verfügbar: Vollständige Inventarbeobachtung zu Beginn und Ende erforderlich.",
         ["ui.results_death_value"] = "Wert nach dem Tod nicht verfügbar: Behaltene Items konnten nicht verifiziert werden.",
+        ["ui.game_day"] = "Tag {0}",
         ["ui.encounters_details"] = "Details",
         ["ui.encounters_tab"] = "Karte & Kills",
         ["ui.encounters_killed"] = "Von dir eliminiert",

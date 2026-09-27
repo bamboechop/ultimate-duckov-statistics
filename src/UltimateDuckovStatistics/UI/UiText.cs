@@ -26,6 +26,7 @@ internal static class UiText
             ["ui.results_estimate"] = "Wallet + carried/pet item value (50% raw value), since raid start. Not actual sale proceeds.",
             ["ui.results_missing_value"] = "Value unavailable: a complete start/end inventory observation is required.",
             ["ui.results_death_value"] = "Value unavailable after death: retained items could not be verified.",
+            ["ui.game_day"] = "Day {0}",
             ["ui.encounters_details"] = "Details",
             ["ui.encounters_tab"] = "Map & Kills",
             ["ui.encounters_killed"] = "Killed by you",

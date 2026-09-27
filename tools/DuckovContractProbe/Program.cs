@@ -196,6 +196,8 @@ try
         core.RequireEvent("Duckov.Economy", "EconomyManager", "OnEconomyManagerLoaded", "System.Action");
         core.RequireEvent("Duckov.Economy", "EconomyManager", "OnCostPaid", "System.Action", "Duckov.Economy.Cost");
         core.RequireEvent("Duckov.Economy", "StockShop", "OnItemSoldByPlayer", "System.Action", "Duckov.Economy.StockShop", "ItemStatsSystem.Item", "System.Int32");
+        core.RequireType(string.Empty, "TimeOfDayDisplay");
+        core.RequireField(string.Empty, "TimeOfDayDisplay", "weatherText", mustBePublic: true, exactFieldType: "TMPro.TextMeshProUGUI");
         core.RequireEvent(string.Empty, "GameClock", "OnGameClockStep", "System.Action");
         core.RequireProperty(string.Empty, "GameClock", "Instance", "GameClock", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "GameClock", "Day", "System.Int64", mustBePublic: true, mustBeStatic: true);

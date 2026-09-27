@@ -147,7 +147,7 @@ public sealed class ExtractionSummaryUiTests : IDisposable
     public void Dispose()
     {
         UnityEngine.Object.Destroy(view.gameObject); UnityEngine.Object.Destroy(template);
-        GameplayDataSettings.UIStyle.TemplateTextUGUI = null;
+        GameplayDataSettings.UIStyle.TemplateTextUGUI = null!;
         GameObject.FailCreationOf = null;
     }
 }
