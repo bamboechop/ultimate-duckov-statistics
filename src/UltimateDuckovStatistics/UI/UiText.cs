@@ -19,6 +19,7 @@ internal static class UiText
     private static readonly Dictionary<string, string> English =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["ui.game_day"] = "Day {0}",
             ["ui.encounters_details"] = "Details",
             ["ui.encounters_tab"] = "Map & Kills",
             ["ui.encounters_killed"] = "Killed by you",

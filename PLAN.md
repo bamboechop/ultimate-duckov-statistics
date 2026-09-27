@@ -640,3 +640,7 @@ The first Goal is complete only when:
 - Unsupported or ambiguous metrics appear as unavailable/experimental, never as fabricated zeroes.
 - Main-duck stats exclude pets and companions unless explicitly shown in separate categories.
 - Existing game and user files are preserved; deployment affects only the mod directory and UDS’s external data directory.
+
+## Game-day HUD follow-up — 2026-09-27
+
+- [ ] **Native day label with English/German wording.** Implementation reads the live saved-game day and shows `Day N` / `Tag N` beneath weather, independently of UDS's recorded time totals. No schema change or additional native patch. Automated lifecycle/localization tests and installed contracts accompany the implementation; native placement, scene/save transitions, language switching, sleep and reactivation still need user acceptance. See [game-day HUD](docs/GAME_DAY_HUD.md). Disable the separate Show Game Days mod for visual testing to avoid its duplicate label.
