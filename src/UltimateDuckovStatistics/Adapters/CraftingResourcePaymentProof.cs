@@ -1,171 +1,120 @@
+using System.Globalization;
 using Duckov.Economy;
 using ItemStatsSystem;
+using UltimateDuckovStatistics.Core.Tracking;
 
 namespace UltimateDuckovStatistics.Adapters;
 
+// Values only: no native Items survive the synchronous payment observation.
 internal sealed class CraftingResourcePaymentProof
 {
-    private readonly Dictionary<int, RepeatedRequirement> repeatedRequirements;
-    private readonly long declaredMoney;
-    private readonly Cost.ItemEntry[] declaredItems;
-    private readonly Dictionary<int, Observation> observations = new();
-    private readonly Dictionary<int, long> netRemovedQuantities = new();
-    private bool paymentStarted;
-    private bool paymentCompleted;
-    private bool exact;
-    private string mutationFailure = string.Empty;
-
-    public CraftingResourcePaymentProof(Cost cost, bool resourceEvidenceProven)
+    private sealed class Holdings
     {
-        declaredMoney = cost.money;
-        declaredItems = cost.items?.ToArray() ?? Array.Empty<Cost.ItemEntry>();
-        if (!resourceEvidenceProven)
-        {
-            repeatedRequirements = new Dictionary<int, RepeatedRequirement>();
-            exact = true;
-            return;
-        }
-        var requirements = new Dictionary<int, RepeatedRequirement>();
-        foreach (var entry in declaredItems)
-        {
-            if (!requirements.TryGetValue(entry.id, out var requirement))
-                requirement = new RepeatedRequirement();
-            requirement.EntryCount = checked(requirement.EntryCount + 1);
-            requirement.CombinedQuantity = checked(requirement.CombinedQuantity + entry.amount);
-            requirements[entry.id] = requirement;
-        }
-        repeatedRequirements = requirements
-            .Where(entry => entry.Value.EntryCount > 1)
-            .ToDictionary(entry => entry.Key, entry => entry.Value);
-        exact = repeatedRequirements.Count == 0;
+        public long Money { get; }
+        public Dictionary<int, (long Quantity, string Name)> Items { get; }
+        public Holdings(long money, Dictionary<int, (long Quantity, string Name)> items)
+        { Money = money; Items = items; }
     }
-
-    public bool RequiresPaymentProof => repeatedRequirements.Count != 0;
-
-    public bool IsExact => exact;
+    private Holdings? before;
+    private bool started, completed, successful, ambiguous, cashIsResource, moneyWasRequested;
+    private string failure = string.Empty;
+    public IReadOnlyList<CraftingResourceCostEvidence> Resources { get; private set; } = Array.Empty<CraftingResourceCostEvidence>();
+    public long CurrencyCharged { get; private set; }
+    public bool ResourcesProven { get; private set; }
+    public bool CurrencyProven { get; private set; }
+    public string ResourceDetail => ResourcesProven ? string.Empty : Detail;
+    public string CurrencyDetail => CurrencyProven ? string.Empty : Detail;
+    private string Detail => !string.IsNullOrEmpty(failure) ? failure
+        : !started ? "Delivered output has no observed payment call; costs are unknown."
+        : !completed || !successful ? "Delivered output has no successfully completed payment observation; costs are unknown."
+        : "Conflicting or nested payment observations prevent exact cost attribution.";
 
     public bool TryBegin(Cost cost)
     {
-        if (!RequiresPaymentProof || paymentStarted || !Matches(cost)) return false;
-        paymentStarted = true;
+        if (started) { ambiguous = true; ResourcesProven = CurrencyProven = false; return false; }
+        started = true;
+        cashIsResource = cost.items?.Any(entry => entry.id == EconomyManager.CashItemID && entry.amount > 0) == true;
+        moneyWasRequested = cost.money > 0;
+        try { before = ReadHoldings(); }
+        catch (Exception exception) { failure = "Payment holdings could not be observed: " + exception.GetType().Name + "."; }
         return true;
     }
 
-    public void ObserveItemCount(int itemTypeId, int count)
+    public void Complete(bool paymentSucceeded)
     {
-        if (!paymentStarted
-            || paymentCompleted
-            || !repeatedRequirements.TryGetValue(itemTypeId, out var requirement)) return;
-        if (!observations.TryGetValue(itemTypeId, out var observation))
-            observation = new Observation { MinimumCount = count };
-        else if (observation.Count >= requirement.EntryCount)
-            return;
-        observation.Count = checked(observation.Count + 1);
-        observation.MinimumCount = Math.Min(observation.MinimumCount, count);
-        observations[itemTypeId] = observation;
-    }
-
-    public void ObserveStackCountMutation(Item item, int beforeCount, int afterCount, bool wasBeingDestroyed)
-    {
-        if (!CanObserveMutation(item, wasBeingDestroyed)) return;
-        if (beforeCount < 0 || afterCount < 0)
-        {
-            mutationFailure = $"Repeated crafting-resource consumption is unavailable because native Pay changed resource {item.TypeID} between invalid stack quantities {beforeCount} and {afterCount}.";
-            return;
-        }
-        if (beforeCount == afterCount) return;
-        AddNetRemoved(item.TypeID, checked((long)beforeCount - afterCount));
-    }
-
-    public void ObserveStackDestroyed(Item item)
-    {
-        if (!CanObserveMutation(item, item.IsBeingDestroyed)) return;
-        if (item.StackCount < 0)
-        {
-            mutationFailure = $"Repeated crafting-resource consumption is unavailable because native Pay destroyed resource {item.TypeID} with negative stack quantity {item.StackCount}.";
-            return;
-        }
-        AddNetRemoved(item.TypeID, item.StackCount);
-    }
-
-    public string Complete(bool paymentSucceeded)
-    {
-        if (!paymentStarted || paymentCompleted)
-            return "Repeated crafting-resource consumption is unavailable because the expected native payment proof was not unique.";
-        paymentCompleted = true;
-        if (!paymentSucceeded) return string.Empty;
-        if (declaredMoney > 0 && repeatedRequirements.ContainsKey(EconomyManager.CashItemID))
-            return "Repeated crafting-resource consumption is unavailable because physical Cash is both an item resource and a possible source for the same recipe's currency charge.";
-        if (!string.IsNullOrWhiteSpace(mutationFailure)) return mutationFailure;
-        foreach (var entry in repeatedRequirements.OrderBy(value => value.Key))
-        {
-            if (!observations.TryGetValue(entry.Key, out var observation)
-                || observation.Count < entry.Value.EntryCount)
-                return $"Repeated crafting-resource consumption is unavailable because native Pay did not expose every affordability observation for resource {entry.Key}.";
-            if (observation.MinimumCount < entry.Value.CombinedQuantity)
-                return $"Repeated crafting-resource consumption is unavailable because native Pay accepted resource {entry.Key} entries totaling {entry.Value.CombinedQuantity} while its minimum affordability observation proved only {observation.MinimumCount} available.";
-            netRemovedQuantities.TryGetValue(entry.Key, out var netRemovedQuantity);
-            if (netRemovedQuantity != entry.Value.CombinedQuantity)
-                return $"Repeated crafting-resource consumption is unavailable because native Pay accepted resource {entry.Key} entries totaling {entry.Value.CombinedQuantity} while its matched net ownership-ending stack mutations proved {netRemovedQuantity} actually removed.";
-        }
-        exact = true;
-        return string.Empty;
-    }
-
-    public void AbandonPayment() => paymentCompleted = true;
-
-    public string DeliveryDetail()
-    {
-        if (exact) return string.Empty;
-        if (!paymentStarted)
-            return "Repeated crafting-resource consumption is unavailable because successful output delivery was not preceded by the expected native payment callback.";
-        if (!paymentCompleted)
-            return "Repeated crafting-resource consumption is unavailable because successful output delivery preceded completion of the native payment proof.";
-        return "Repeated crafting-resource consumption is unavailable because native payment did not prove the canonical combined quantity.";
-    }
-
-    private bool Matches(Cost cost)
-    {
-        if (cost.money != declaredMoney || cost.items == null || cost.items.Length != declaredItems.Length) return false;
-        for (var index = 0; index < declaredItems.Length; index++)
-        {
-            if (cost.items[index].id != declaredItems[index].id
-                || cost.items[index].amount != declaredItems[index].amount)
-                return false;
-        }
-        return true;
-    }
-
-    private bool CanObserveMutation(Item item, bool wasBeingDestroyed) =>
-        paymentStarted
-        && !paymentCompleted
-        && !wasBeingDestroyed
-        && repeatedRequirements.ContainsKey(item.TypeID)
-        && string.IsNullOrWhiteSpace(mutationFailure);
-
-    private void AddNetRemoved(int itemTypeId, long quantity)
-    {
-        if (quantity == 0) return;
+        if (completed) { ambiguous = true; ResourcesProven = CurrencyProven = false; return; }
+        completed = true;
+        successful = paymentSucceeded;
+        if (!successful || ambiguous || before == null) return;
         try
         {
-            netRemovedQuantities.TryGetValue(itemTypeId, out var current);
-            netRemovedQuantities[itemTypeId] = checked(current + quantity);
+            var after = ReadHoldings();
+            var resources = new List<CraftingResourceCostEvidence>();
+            foreach (var entry in before.Items.OrderBy(value => value.Key))
+            {
+                after.Items.TryGetValue(entry.Key, out var retained);
+                var removed = checked(entry.Value.Quantity - retained.Quantity);
+                if (removed <= 0 || (entry.Key == EconomyManager.CashItemID && !cashIsResource)) continue;
+                resources.Add(new(entry.Key.ToString(CultureInfo.InvariantCulture), entry.Value.Name, removed));
+            }
+            before.Items.TryGetValue(EconomyManager.CashItemID, out var priorCash);
+            after.Items.TryGetValue(EconomyManager.CashItemID, out var laterCash);
+            var cashLoss = checked(priorCash.Quantity - laterCash.Quantity);
+            if (cashIsResource && moneyWasRequested && cashLoss != 0)
+            {
+                failure = "Physical Cash changed while serving as both an item resource and possible currency; cost allocation is unknown.";
+                return;
+            }
+            Resources = resources;
+            ResourcesProven = true;
+            var currency = checked(before.Money - after.Money + (cashIsResource ? 0 : cashLoss));
+            if (currency < 0)
+            {
+                failure = "Payment produced a net currency gain; it cannot be represented as a nonnegative crafting charge.";
+                return;
+            }
+            CurrencyCharged = currency;
+            CurrencyProven = true;
         }
-        catch (OverflowException)
+        catch (Exception exception)
         {
-            mutationFailure = $"Repeated crafting-resource consumption is unavailable because native Pay mutation evidence overflowed for resource {itemTypeId}.";
+            ResourcesProven = CurrencyProven = false;
+            failure = "Payment holdings could not be reconciled: " + exception.GetType().Name + ".";
         }
     }
 
-    private struct RepeatedRequirement
-    {
-        public int EntryCount;
-        public long CombinedQuantity;
-    }
+    public void AbandonPayment() { completed = true; successful = false; ResourcesProven = CurrencyProven = false; }
 
-    private struct Observation
+    private static Holdings ReadHoldings()
     {
-        public int Count;
-        public int MinimumCount;
+        var money = EconomyManager.Money;
+        if (money < 0) throw new InvalidOperationException("Negative currency holdings.");
+        var values = new Dictionary<int, (long Quantity, string Name)>();
+        var seen = new HashSet<int>();
+        var pending = new Stack<Item>(ItemUtilities.FindAllBelongsToPlayer(_ => true));
+        while (pending.Count > 0)
+        {
+            var item = pending.Pop();
+            if (item == null || item.IsBeingDestroyed || !seen.Add(item.GetInstanceID())) continue;
+            if (seen.Count > 32768) throw new InvalidOperationException("Payment observation limit exceeded.");
+            // Native ownership enumeration is flat. Attachments returned during
+            // payment were owned before the call too, so include the full tree.
+            if (item.Slots != null)
+                foreach (var slot in item.Slots)
+                    if (slot?.Content != null) pending.Push(slot.Content);
+            if (item.Inventory?.Content != null)
+                foreach (var child in item.Inventory.Content)
+                    if (child != null) pending.Push(child);
+            if (item.TypeID <= 0) continue;
+            var quantity = item.Stackable ? item.StackCount : 1;
+            if (quantity < 0) throw new InvalidOperationException("Negative owned item quantity.");
+            values.TryGetValue(item.TypeID, out var existing);
+            string name;
+            try { name = item.DisplayName; }
+            catch { name = string.Empty; }
+            values[item.TypeID] = (checked(existing.Quantity + quantity), string.IsNullOrWhiteSpace(name)
+                ? "Item " + item.TypeID.ToString(CultureInfo.InvariantCulture) : name);
+        }
+        return new(money, values);
     }
 }

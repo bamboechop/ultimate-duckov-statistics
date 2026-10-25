@@ -78,6 +78,7 @@ internal static class CraftingPresentationFactory
     {
         if (p == null || string.IsNullOrWhiteSpace(generation) || p.CraftingBinding?.Matches(p, generation) != true) return null;
         var t = text ?? UiText.Get; var a = p.Crafting; var c = p.CraftingCapabilities;
+        var current = p.CraftingCurrentCapabilities;
         string Name(string id, string name)
         {
             name = p.Names.Get(id, name);
@@ -87,8 +88,9 @@ internal static class CraftingPresentationFactory
         var outputSupported = Supported(c.CompletionActions) && Supported(c.OutputIdentity);
         var resourceSupported = Supported(c.ItemResourceIdentity);
         var associationSupported = Supported(c.OutputResourceAssociation);
-        string DetailNotice(bool empty) => !associationSupported ? CapabilityNotice(t, "ui.crafting_association_unavailable", c.OutputResourceAssociation)
-            : empty && a.ResourceHistoryUnavailable ? t("ui.unavailable") : "";
+        string DetailNotice(bool empty) => Join(
+            CapabilityNotice(t, "ui.crafting_association_unavailable", current.OutputResourceAssociation),
+            a.ResourceHistoryUnavailable ? t(empty ? "ui.unavailable" : "ui.crafting_recorded_partial") : "");
         var outputRows = a.Outputs.Values.Select(output =>
         {
             var details = output.Recipes.Values.SelectMany(recipe => recipe.Resources.Values)
@@ -102,7 +104,7 @@ internal static class CraftingPresentationFactory
                 && output.Recipes.Count > 0 && ExactSum(output.Recipes.Values.Select(r => r.CompletionActions)) == output.CompletionActions;
             var notice = DetailNotice(details.Length == 0);
             if (details.Length == 0 && notice.Length == 0) notice = t(emptyProven ? "ui.crafting_no_resources_used" : "ui.unavailable");
-            var quantityNotice = CapabilityNotice(t, "ui.crafting_quantity_current_unavailable", c.ProducedQuantity);
+            var quantityNotice = CapabilityNotice(t, "ui.crafting_quantity_current_unavailable", current.ProducedQuantity);
             if (quantityNotice.Length > 0) notice = Join(notice, quantityNotice);
             return new CraftingEntry("output:" + output.OutputItemId, output.OutputItemId, Name(output.OutputItemId, output.DisplayName),
                 a.CompletionArithmeticUnavailable ? null : Observed(output.CompletionActions, c.CompletionActions),
@@ -134,8 +136,9 @@ internal static class CraftingPresentationFactory
                 a.ResourceQuantityArithmeticUnavailable ? null : Observed(resource.ConsumedQuantity, c.ItemResourceIdentity), null, ordered, notice);
         }).OrderBy(r => !r.Count.HasValue).ThenByDescending(r => r.Count).ThenBy(r => r.Name, StringComparer.Ordinal)
             .ThenBy(r => r.ItemId, StringComparer.Ordinal).ToArray();
-        var outputNotice = CapabilityNotice(t, "ui.crafting_current_unavailable", c.CompletionActions, c.OutputIdentity);
-        var resourceNotice = CapabilityNotice(t, "ui.crafting_resource_current_unavailable", c.ItemResourceIdentity);
+        var outputNotice = CapabilityNotice(t, "ui.crafting_current_unavailable", current.CompletionActions, current.OutputIdentity);
+        var resourceNotice = CapabilityNotice(t, "ui.crafting_resource_current_unavailable", current.ItemResourceIdentity);
+        if (a.ResourceHistoryUnavailable) resourceNotice = Join(resourceNotice, t("ui.crafting_recorded_partial"));
         if (a.WasRepairedFromInvalidState)
         { outputNotice = Join(outputNotice, t("ui.crafting_recorded_partial")); resourceNotice = Join(resourceNotice, t("ui.crafting_recorded_partial")); }
         return new CraftingPresentation(generation, outputRows, resourceRows, outputNotice, resourceNotice,
@@ -147,7 +150,8 @@ internal static class CraftingPresentationFactory
         capabilities.Any(c => c.State == AdapterCapabilityState.DisabledIncompatible) ? text(unavailable)
         : capabilities.Any(c => c.State != AdapterCapabilityState.Supported) ? text("ui.crafting_recorded_partial") : "";
     private static long? Observed(long value, MetricAvailability availability) => value > 0 || Supported(availability) ? value : null;
-    private static string Join(string first, string second) => first.Length == 0 ? second : first + "\n" + second;
+    private static string Join(string first, string second) => first.Length == 0 ? second
+        : second.Length == 0 || first == second ? first : first + "\n" + second;
     private static long? AssociatedProduction(CraftingRecipeAggregate recipe, CraftingResourceAssociationAggregate resource)
     {
         if (resource.ConsumptionActions == recipe.CompletionActions) return recipe.ProducedQuantity;

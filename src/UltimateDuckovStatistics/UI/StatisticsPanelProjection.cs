@@ -1561,16 +1561,17 @@ internal static class ProfileSummaryPresentationFactory
     private static string FormatCapabilityInteger(
         long value,
         MetricAvailability availability,
-        Func<string, string> text) => availability.State == AdapterCapabilityState.DisabledIncompatible
-        ? text("ui.unsupported")
-        : FormatInteger(value);
+        Func<string, string> text) => availability.State == AdapterCapabilityState.Supported
+            ? FormatInteger(value)
+            : value > 0 ? FormatInteger(value) + " (" + text("ui.combat_partial") + ")" : text("ui.unavailable");
 
     private static string FormatCapabilityDecimal(
         double value,
         MetricAvailability availability,
-        Func<string, string> text) => availability.State == AdapterCapabilityState.DisabledIncompatible
-        ? text("ui.unsupported")
-        : FormatFiniteDecimal(value, text);
+        Func<string, string> text) => availability.State == AdapterCapabilityState.Supported
+            ? FormatFiniteDecimal(value, text)
+            : IsFiniteNonNegative(value) && value > 0
+                ? FormatFiniteDecimal(value, text) + " (" + text("ui.combat_partial") + ")" : text("ui.unavailable");
 
     private static string FormatFiniteDecimal(double value, Func<string, string> text) =>
         IsFiniteNonNegative(value)
@@ -4321,6 +4322,7 @@ internal sealed class StatisticsPanelProjection
     public WorldTimeMetricCapabilities WorldTimeCapabilities { get; set; } = new();
     public CraftingStatisticsAggregate Crafting { get; set; } = new();
     public CraftingMetricCapabilities CraftingCapabilities { get; set; } = new();
+    public CraftingMetricCapabilities CraftingCurrentCapabilities { get; set; } = new();
     public ItemUsePanelProjection ItemUse { get; set; } = new();
     public IReadOnlyList<WeaponAmmunitionGroupProjection> WeaponAmmunitionGroups { get; set; } =
         Array.Empty<WeaponAmmunitionGroupProjection>();
@@ -4456,6 +4458,7 @@ internal static class StatisticsPanelProjectionFactory
             CraftingCapabilities = CraftingStatisticsReducer.RestrictWithCurrent(
                 profile.Statistics.Crafting.Capabilities,
                 currentCraftingCapabilities),
+            CraftingCurrentCapabilities = CraftingStatisticsReducer.CloneCapabilities(currentCraftingCapabilities),
             ItemUse = CreateItemUse(profile),
             WeaponAmmunitionGroups = CreateWeaponAmmunitionGroups(weapons),
             CraftingOutputs = CreateCraftingOutputs(profile.Statistics.Crafting),

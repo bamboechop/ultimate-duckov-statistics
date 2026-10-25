@@ -2,7 +2,7 @@
 
 [GitHub v1.3.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.3.0), published on September 23, 2026, includes optional integrations for First Person Camera (Workshop `3785095584`), Become Veteran (`3736801011`) and Storage Search Bar (`3592349195`), plus native base pause. The implementation merged through [PR #31](https://github.com/bamboechop/ultimate-duckov-statistics/pull/31). No external mod DLL is bundled or required. The initial two-run native smoke test and pause check passed on 2026-09-23; broader native cases remain listed below.
 
-Enable Harmony and the optional mods before UDS, and restart Duckov after changing the enabled mod set. Runtime patch-set changes still invalidate affected recording; changing mod load order does not reconstruct missing history.
+Enable Harmony and the optional mods before UDS. The current [record-by-default policy](RECORD_BY_DEFAULT.md) treats foreign patch additions as diagnostic context. Changed patch sets are revalidated for required UDS callbacks; missing callbacks still suspend dependent recording. Changing load order does not reconstruct missing history.
 
 Version [1.4.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.4.0) also recognizes the September 27 reinspected FPC build listed below and includes [modifier shortcuts](MODIFIER_SHORTCUTS.md). Its numeric-persistence and Diagnostics corrections apply with or without optional mods; see [the recording failure analysis](EXTRACTION_SUMMARY.md#recording-failures-and-acceptance).
 
@@ -18,7 +18,7 @@ The [player kill feed](PLAYER_KILL_FEED.md) in 1.5.0 uses the existing validated
 
 `CharacterBuffManager.AddBuff` now has an independent UDS owner. A rejected healing/BV hook cannot disable combat buff actor/weapon observation. Healing still depends on trusted shared buff observation for complete native delayed-healing attribution: losing that shared observer correctly degrades healing as well as the combat metrics that depend on it.
 
-The shared patch inspector accepts only the inspected callback, target, category, owner and ordering for these builds. Missing/duplicate UDS callbacks, unknown foreign patches and later patch-state drift remain failures. Build identity combines the loaded module ID and a cached SHA-256 check of the installed DLL, rather than trusting a mod name or reused version number. Changed builds require reinspection; compatibility is not promised for every mod sharing the same owner ID. FPC-specific contract loss marks headshot evidence unavailable/incomplete while independently observable combat continues where its own hooks remain trusted.
+Native tracking accepts unfamiliar foreign patches while validating exact UDS callbacks. Missing or duplicate owned callbacks still invalidate the affected observer. Private FPC and BV integrations retain binary and member verification where they interpret mod-specific state: build identity combines the loaded module ID and a cached SHA-256 check. Changed private contracts require reinspection. FPC-specific contract loss limits headshot evidence while independently observed combat remains available; an unverified BV queue does not by itself stop native item-healing observation.
 
 Discovery and binary hashing occur during initialization/patch inspection. FPC's hit path uses a cached mode delegate. BV uses cached queue metadata and existing patch-state tokens; it does not poll HP, enumerate patch metadata or hash DLLs for each healing tick. Nothing adds persistence writes to these callbacks beyond existing event collection.
 
@@ -38,6 +38,7 @@ The installed DLLs were statically inspected on 2026-09-23 against Duckov 2.3.30
 | --- | --- | --- |
 | FirstPersonCamera | `916ebb5c-dc53-4c53-ba0d-a4f672364748` | `832be121a23095bc37dba4735b155a3d1e0c8a511eb18d5e992ba91887965cac` |
 | FirstPersonCamera (reinspected 2026-09-27) | `d5173e49-e754-49ed-88de-b8af2f607f67` | `c7d5b7c7c74bc9ae793ee262bdfd379ffd22b8b8fbe8edfeaaed108620e56835` |
+| FirstPersonCamera (reinspected 2026-10-24) | `14b6820f-2f3f-4e87-ad5a-2b5e7cd0342f` | `710c8a17a4292315ce429ffb1fe0ca3d5e8616164383dd92924fac1971f81c6c` |
 | BecomeVeteran | `f86b3a0a-3767-44bc-a545-72252bbf26f4` | `a79a3391fe66b2ea0000eb2310e24d512ed77276af0850eb292515c48a8e8b6b` |
 | StorageSearchBar | `6d2fdec7-3d42-480f-8fad-c02752e66fc5` | `2887f088a6bd99186b855135b0e72a548fbd6f72a17076f69e28dee3b3e205b0` |
 
@@ -46,6 +47,10 @@ The installed DLLs were statically inspected on 2026-09-23 against Duckov 2.3.30
 The installed FPC DLL changed after the initial qualification. A fresh-game extraction test on September 27 rejected its unknown binary identity at `Health.Hurt` and `Grenade.Launch`, leaving the raid's player-kill total unavailable. This was a combat-capture gap, not a results-screen count loss; missing history cannot be reconstructed.
 
 Static comparison of the two installed builds found identical `HeadshotPatch`, `HitEffectsPatch`, `PhysicalProjectileHeadshotBridge`, `LastDanceHeadshotCompatibility`, `Grenade_Launch_Patch` and patch-registration code. The changed grenade explosion relay additionally requests vegetation animation; it preserves the grenade's native damage/source fields. The mode accessor still reads the controller's first-person state, and the inspected hook priorities and ownership are unchanged. Both exact module/hash pairs are now recognized; unknown builds and unexpected callback/order changes still fail closed. The user subsequently accepted the corrected fresh-raid results and recording fixes, with English/German extraction testing. This acceptance does not establish the broader mode-switching and targeted headshot checks listed below.
+
+### FPC build reinspection, 2026-10-24
+
+The installed October 19 DLL was rejected at `Health.Hurt` and `Grenade.Launch` because its module/hash pair was unknown. Reinspection confirms the same callback targets, owner and default ordering. Headshot callbacks now delegate to implementation methods and add Short Eagle target detection, but retain the same first-person eligibility, target-specific `crit = actualHeadHit ? 1 : 0` assignment before native damage, and finalizer cleanup. The mode accessor still reads the controller's first-person state. Hit effects remain observational; grenade launch adjusts velocity and attaches an explosion presentation relay without replacing damage/source ownership. UDS recognizes this exact additional build; unknown identities and unexpected patch changes remain rejected. Static inspection and automated tests do not establish fresh in-game acceptance, and combat missed while the health hook was disabled cannot be reconstructed.
 
 ## Qualification
 

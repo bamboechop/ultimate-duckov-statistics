@@ -6,6 +6,8 @@ The feed starts at the native storm information box's left edge, eight native UI
 
 ## Settings
 
+Player-credited explosive barrel kills use an explosion pictogram instead of the triggering gun. Explosions never display a headshot marker. See [explosive barrel attribution](EXPLOSIVE_BARREL_ATTRIBUTION.md) for tracking and historical repair details.
+
 Open **Diagnostics → Data & settings → Kill feed** outside a raid. English and German controls provide:
 
 - Feed enabled (default on).

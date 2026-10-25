@@ -194,7 +194,8 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
         internal RectTransform Root { get; }
         internal CanvasGroup Group { get; }
         private readonly TextMeshProUGUI first, last, distance, unknownWeapon;
-        private readonly Image weapon, headshot;
+        private readonly Image weapon, headshot, blastImage;
+        private readonly RectTransform explosion;
         private readonly float paddingLeft, paddingRight, paddingTop, paddingBottom;
         private KillFeedEntry? bound;
         private float lastAvailableWidth;
@@ -231,6 +232,12 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
             headshot = Node(Root, "Headshot").gameObject.AddComponent<Image>();
             weapon.raycastTarget = headshot.raycastTarget = false;
             weapon.preserveAspect = headshot.preserveAspect = true;
+            explosion = Node(Root, "Explosion");
+            var blast = Node(explosion, "Blast");
+            blast.sizeDelta = new Vector2(32, 32);
+            blastImage = blast.gameObject.AddComponent<Image>();
+            blastImage.color = Color.white; blastImage.raycastTarget = false;
+            blastImage.preserveAspect = true;
 
             TextMeshProUGUI Text(string name, float size)
             {
@@ -260,9 +267,12 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
             if (showHeadshot) headshot.sprite = icons.Headshot;
             distance.gameObject.SetActive(showDistance);
             distance.text = showDistance ? entry.Meters!.Value.ToString("0.##", CultureInfo.CurrentCulture) + " m" : string.Empty;
-            weapon.sprite = icons.Weapon(entry.WeaponId);
-            weapon.gameObject.SetActive(weapon.sprite != null);
-            unknownWeapon.gameObject.SetActive(weapon.sprite == null); unknownWeapon.text = "—";
+            var isBarrel = entry.WeaponId == CombatSourceIds.ExplosiveBarrel;
+            if (isBarrel) blastImage.sprite = icons.Explosion;
+            explosion.gameObject.SetActive(isBarrel);
+            weapon.sprite = isBarrel ? null : icons.Weapon(entry.WeaponId);
+            weapon.gameObject.SetActive(!isBarrel && weapon.sprite != null);
+            unknownWeapon.gameObject.SetActive(!isBarrel && weapon.sprite == null); unknownWeapon.text = "—";
             var measuredDistance = distance.GetPreferredValues(distance.text);
             var distanceHeight = showDistance ? (float)Math.Ceiling(measuredDistance.y) + 2 : 0;
             var iconRect = weapon.sprite != null ? weapon.sprite.rect : new Rect(0, 0, WeaponSize, WeaponSize);
@@ -285,6 +295,7 @@ internal sealed class NativePlayerKillFeedHud : IDisposable
             Place(first.rectTransform, x, paddingTop + (contentHeight - firstHeight) / 2, a, firstHeight); x += a + 8;
             // Wider silhouettes can grow sideways without changing the row or caption height.
             Place(weapon.rectTransform, x + (weaponWidth - iconWidth) / 2, weaponTop + (WeaponSize - iconHeight) / 2, iconWidth, iconHeight);
+            Place(explosion, x + (weaponWidth - WeaponSize) / 2, weaponTop, WeaponSize, WeaponSize);
             Place(unknownWeapon.rectTransform, x, weaponTop, weaponWidth, WeaponSize);
             Place(distance.rectTransform, x, weaponTop + WeaponSize + DistanceGap, weaponWidth, distanceHeight); x += weaponWidth + 8;
             if (showHeadshot) { Place(headshot.rectTransform, x, paddingTop + (contentHeight - 28) / 2, 28, 28); x += 36; }

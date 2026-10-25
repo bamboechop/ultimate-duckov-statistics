@@ -44,12 +44,14 @@ internal sealed class NativeEncounterMapObserver : IEncounterObserver
         current = this;
         try
         {
-            if (!ReflectiveHarmonyPatcher.TryCreate("at.bamboechop.uds.encounters.map", out patcher, out var detail) || patcher == null)
+            if (!ReflectiveHarmonyPatcher.TryCreate("at.bamboechop.uds.encounters.map", out patcher, out var detail,
+                    HarmonyForeignPatchPolicy.Observe) || patcher == null)
                 Record("map-placement-unavailable", new { reason = detail });
             else if (!patcher.IsPatchSetTrusted(placement, Array.Empty<HarmonyPatchExpectation>(), out detail))
                 Record("map-placement-unavailable", new { reason = detail });
             else
             {
+                patcher.ObservationDiagnostic = log;
                 patcher.Patch(placement, Method(nameof(PlacementPrefix)), Method(nameof(PlacementPostfix)), Method(nameof(PlacementFinalizer)));
                 exactPlacement = CheckPatchSet();
                 Record("map-placement-capability", new { exactPlacement });

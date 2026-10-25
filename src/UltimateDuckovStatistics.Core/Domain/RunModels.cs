@@ -337,7 +337,7 @@ public sealed class ActiveRunCheckpoint
             TeleportDistance = FiniteNonNegative(TeleportDistance),
             IntegrityTags = IntegrityTags,
             RecordEligible = outcome != RunOutcome.Interrupted
-                             && IntegrityTags == IntegrityTags.Normal
+                             && RunIntegrityPolicy.AllowsRecords(IntegrityTags)
                              && LifecycleCapability == AdapterCapabilityState.Supported,
             GameVersion = GameVersion,
             GameBuild = GameBuild,

@@ -90,6 +90,8 @@ try
         core.RequireEvent("Duckov.UI", "ManagedUIElement", "onOpen", "System.Action", "Duckov.UI.ManagedUIElement");
         core.RequireEvent("Duckov.UI", "ManagedUIElement", "onClose", "System.Action", "Duckov.UI.ManagedUIElement");
         core.RequireType("Duckov.Modding", "ModBehaviour");
+        core.RequireMethod(string.Empty, "Breakable", "OnDead", 1, mustBePrivate: true, returnTypeFragment: "System.Void", parameterTypeFragments: ["DamageInfo"]);
+        core.RequireField(string.Empty, "Breakable", "createExplosion", mustBePublic: true, exactFieldType: "System.Boolean");
         core.RequireField("Duckov.Modding", "ModManager", "activeMods", mustBePrivate: true,
             mustBeInstance: true, exactFieldType: "System.Collections.Generic.Dictionary`2<System.String,Duckov.Modding.ModBehaviour>");
         core.RequireMethod("Duckov.Modding", "ModBehaviour", "OnAfterSetup", parameterCount: 0, mustBeFamily: true, mustBeVirtual: true);

@@ -8,6 +8,23 @@ public sealed class KnownModCompatibilityTests
 {
     private static readonly string[] UdsOrder = { "uds" };
     [Fact]
+    public void InspectedFpcBarrelCameraPrefixMatchesOnlyItsExactTargetAndPhase()
+    {
+        var assembly = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName("FirstPersonCamera"), AssemblyBuilderAccess.RunAndCollect);
+        var module = assembly.DefineDynamicModule("fake");
+        var type = module.DefineType("FirstPersonCamera.Patches.Breakable_OnDead_ExplosionCameraShake_Patch", TypeAttributes.Public);
+        var method = type.DefineMethod("Prefix", MethodAttributes.Static | MethodAttributes.Public, typeof(void), new[] { typeof(Breakable) });
+        method.GetILGenerator().Emit(OpCodes.Ret);
+        var callback = type.CreateType()!.GetMethod("Prefix")!;
+        var target = typeof(Breakable).GetMethod("OnDead", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        Assert.True(KnownModCompatibility.MatchesCallback(target, "Prefixes", "firstpersoncamera.aimpatch", callback));
+        Assert.False(KnownModCompatibility.MatchesCallback(target, "Postfixes", "firstpersoncamera.aimpatch", callback));
+        Assert.False(KnownModCompatibility.MatchesCallback(target, "Prefixes", "other.owner", callback));
+        Assert.False(KnownModCompatibility.MatchesCallback(typeof(Health).GetMethod(nameof(Health.Hurt))!, "Prefixes", "firstpersoncamera.aimpatch", callback));
+        Assert.False(KnownModCompatibility.IsVerifiedAssembly(assembly, "FirstPersonCamera"));
+    }
+
+    [Fact]
     public void CopiedModNameOwnerAndCallbackCannotEnableUnverifiedCode()
     {
         var assembly = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName("StorageSearchBar"), AssemblyBuilderAccess.RunAndCollect);
@@ -43,7 +60,8 @@ public sealed class KnownModCompatibilityTests
     [Theory]
     [InlineData("916ebb5c-dc53-4c53-ba0d-a4f672364748", "832be121a23095bc37dba4735b155a3d1e0c8a511eb18d5e992ba91887965cac")]
     [InlineData("d5173e49-e754-49ed-88de-b8af2f607f67", "c7d5b7c7c74bc9ae793ee262bdfd379ffd22b8b8fbe8edfeaaed108620e56835")]
-    public void BothInspectedFirstPersonBuildsRequireMatchingModuleAndBinary(string module, string hash)
+    [InlineData("14b6820f-2f3f-4e87-ad5a-2b5e7cd0342f", "710c8a17a4292315ce429ffb1fe0ca3d5e8616164383dd92924fac1971f81c6c")]
+    public void InspectedFirstPersonBuildsRequireMatchingModuleAndBinary(string module, string hash)
     {
         var id = Guid.Parse(module);
         Assert.True(KnownModCompatibility.MatchesInspectedBuild("FirstPersonCamera", id, hash.ToUpperInvariant()));

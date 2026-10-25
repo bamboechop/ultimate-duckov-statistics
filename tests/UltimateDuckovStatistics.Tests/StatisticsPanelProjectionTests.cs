@@ -2030,8 +2030,8 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal("loc:ui.unavailable", rows[3].Value);
         Assert.Equal("loc:ui.unavailable", rows[4].Value);
         Assert.Equal("loc:ui.distance_not_recorded", rows[5].Value);
-        Assert.Equal("loc:ui.unsupported", rows[6].Value);
-        Assert.Equal("loc:ui.unsupported", rows[8].Value);
+        Assert.Equal("loc:ui.unavailable", rows[6].Value);
+        Assert.Equal("loc:ui.unavailable", rows[8].Value);
         Assert.Equal("1234", rows[11].Value);
         Assert.Equal("loc:ui.overview_money_net loc:ui.unsupported", rows[12].Value);
         Assert.Equal("loc:ui.overview_cash_net loc:ui.unsupported", rows[12].SecondaryValue);

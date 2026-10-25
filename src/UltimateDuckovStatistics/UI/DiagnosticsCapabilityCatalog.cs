@@ -45,6 +45,7 @@ internal static class DiagnosticsCapabilityCatalog
         new("native-headshots", "combat", "Headshots", requiresHarmony: true),
         new("native-headshot-final-blows", "combat", "Headshot final blows", requiresHarmony: true),
         new("native-throwable-player-final-blows", "combat", "Throwable kills", requiresHarmony: true),
+        new("native-barrel-explosion-attribution", "combat", "Explosive barrel attribution", requiresHarmony: true),
         new("native-grenade-hazard-attribution", "combat", "Spawned grenade damage ownership", requiresHarmony: true),
         new("native-proven-player-final-blows", "combat", "Kills by you", requiresHarmony: true),
         new("native-observed-world-deaths", "combat", "Observed world deaths", requiresHarmony: true),

@@ -1,0 +1,9 @@
+# Personal records in modded playthroughs
+
+Modded runs contribute to personal duration records and record-eligible kill-distance highlights. UDS retains the `ModdedContent` tag as context; it is not a reason to exclude a personal run. Interrupted runs, unknown integrity, cheat/custom difficulty and unavailable lifecycle evidence retain their existing duration-record exclusions.
+
+The original plan treated all flagged runs as excluded by default and promised an inclusion filter. M3 implemented that exclusion; the current Records UI does not provide the promised filter. The October 24 product correction makes modded personal records available directly instead of requiring that missing control. Existing excluded run summaries require explicit requalification and record rebuilding; changing the policy does not invent missing gameplay or silently rewrite old profiles.
+
+Combat coverage is independent of record eligibility. A historical recording gap does not mean the adapter is currently unsupported. Overview retains captured positive kills and damage with a partial marker, consistent with the Combat page. Diagnostics reports current adapter operation. A short localized coverage notice explains the historical gap; accumulated native contract descriptions remain technical evidence rather than ordinary page text. Capability explanation merging deduplicates individual reasons, and normalization compacts previously accumulated repetitions without upgrading coverage or altering numeric totals.
+
+Automated regressions exercise modded lifecycle completion through the reducer, modded extraction/death record presentation, incomplete lifetime combat totals with currently supported adapters, and repeated capability publication followed by persisted normalization. Native gameplay and visual acceptance remain separate from those checks.

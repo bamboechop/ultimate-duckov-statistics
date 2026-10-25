@@ -150,7 +150,7 @@ internal static class RecordsPresentationFactory
         return Eligible(run, outcome) && (map == null || run.StartingMapId == map);
     }
     private static bool Eligible(RunSummary run, RunOutcome outcome) => run.RecordEligible && run.Outcome == outcome
-        && run.IntegrityTags == IntegrityTags.Normal && run.LifecycleCapability == AdapterCapabilityState.Supported;
+        && RunIntegrityPolicy.AllowsRecords(run.IntegrityTags) && run.LifecycleCapability == AdapterCapabilityState.Supported;
     private static RunSummary? Resolve(DurationRecordReference? reference, RunOutcome outcome, string? map, IReadOnlyDictionary<string, RunSummary> runs) =>
         reference != null && runs.TryGetValue(reference.RunId, out var run) && Eligible(run, outcome)
         && run.StartedUtc == reference.StartedUtc && run.ActiveDurationSeconds == reference.ActiveDurationSeconds

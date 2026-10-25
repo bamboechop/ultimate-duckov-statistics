@@ -349,6 +349,7 @@ public sealed class RetainedRecordsTests
     {
         var e = Run("e", 64.083); e.PhysicalDistance = 12; e.TeleportDistance = 5;
         var d = Run("d", 100, RunOutcome.Died);
+        e.IntegrityTags = d.IntegrityTags = IntegrityTags.ModdedContent;
         var interrupted = Run("i", 5, RunOutcome.Interrupted); interrupted.RecordEligible = false;
         var excluded = Run("excluded", 1); excluded.RecordEligible = false; excluded.IntegrityTags = IntegrityTags.CheatOrCustomDifficulty;
         var p = Projection();

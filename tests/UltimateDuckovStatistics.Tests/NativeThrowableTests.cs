@@ -67,14 +67,24 @@ namespace UltimateDuckovStatistics.Tests
         public void CleanupDisarmsInFlightCallbacks()
         { var skill = Grenade(); var state = Begin(skill); Released(skill); Assert.True(adapter.TryCleanup()); End(state); Assert.Empty(events); }
         [Fact]
-        public void ForeignPatchAddedDuringReleaseDisablesAttribution()
+        public void ForeignPatchAddedDuringReleaseKeepsProvenRelease()
         {
             var skill = Grenade(); var state = Begin(skill); Released(skill);
             var foreign = new HarmonyLib.Harmony("foreign.throwable");
             foreign.Patch(typeof(SkillBase).GetMethod(nameof(SkillBase.ReleaseSkill))!,
                 new HarmonyLib.HarmonyMethod(typeof(NativeThrowableTests).GetMethod(nameof(ForeignPrefix), BindingFlags.Static | BindingFlags.NonPublic)!), null, null, null);
-            End(state); Assert.Empty(events); Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities[^1].State);
+            End(state); Assert.Single(events); Assert.Equal(AdapterCapabilityState.Supported, capabilities[^1].State);
         }
         private static void ForeignPrefix() { }
+
+        [Fact]
+        public void MissingOwnedReleaseCallbackStillRejectsUnprovenThrow()
+        {
+            var skill = Grenade(); var state = Begin(skill); Released(skill);
+            new HarmonyLib.Harmony("test").UnpatchAll("at.bamboechop.ultimate-duckov-statistics.throwables");
+            End(state);
+            Assert.Empty(events);
+            Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities[^1].State);
+        }
     }
 }

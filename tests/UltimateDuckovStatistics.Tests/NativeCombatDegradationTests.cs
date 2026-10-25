@@ -55,7 +55,7 @@ public sealed partial class NativeCombatDegradationTests : IDisposable
         Assert.Equal("at-shot", adapter.CreateEffectScope(new() { source = trigger })!.EquipmentAssociation.LoadoutId);
         if (hitBeforeDrift) Hit(projectile);
 
-        AddForeignPatchAndInspect(typeof(Effect).GetMethod(nameof(Effect.SetItem))!);
+        RemoveOwnedCallbackAndInspect(typeof(Effect).GetMethod(nameof(Effect.SetItem))!);
 
         Assert.Equal(AdapterCapabilityState.Supported, adapter.MetricCapabilities.Accuracy.State);
         Assert.Equal(AdapterCapabilityState.Supported, adapter.MetricCapabilities.RangedHits.State);
@@ -86,7 +86,7 @@ public sealed partial class NativeCombatDegradationTests : IDisposable
     {
         var projectile = Capture();
         Hit(projectile);
-        AddForeignPatchAndInspect(typeof(Projectile).GetMethod(method,
+        RemoveOwnedCallbackAndInspect(typeof(Projectile).GetMethod(method,
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, adapter.MetricCapabilities.Accuracy.State);
         Assert.Equal(AdapterCapabilityState.Supported, adapter.MetricCapabilities.PlayerDeaths.State);
@@ -145,7 +145,7 @@ public sealed partial class NativeCombatDegradationTests : IDisposable
         var context = new EffectTriggerEventContext { source = new TickTrigger { Parent = buff } };
         Assert.True(adapter.CreateEffectScope(context)!.ConflictingActorEvidence);
 
-        AddForeignPatchAndInspect(NativeMethod(nativeType, method));
+        RemoveOwnedCallbackAndInspect(NativeMethod(nativeType, method));
 
         Assert.True(adapter.CreateEffectScope(context)!.ConflictingActorEvidence);
         Assert.Equal(AdapterCapabilityState.Supported, adapter.MetricCapabilities.Ownership.State);
@@ -167,7 +167,7 @@ public sealed partial class NativeCombatDegradationTests : IDisposable
     {
         var zone = CaptureGrenadeZone();
         Assert.Same(player, adapter.CreateEnvironmentalScope(zone)!.PhysicalSource);
-        AddForeignPatchAndInspect(NativeMethod(nativeType, method));
+        RemoveOwnedCallbackAndInspect(NativeMethod(nativeType, method));
         Assert.Null(adapter.CreateEnvironmentalScope(zone)?.GrenadeHazardOrigin);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, adapter.Initialize().Single(value => value.AdapterId == "native-grenade-hazard-attribution").State);
     }
@@ -176,7 +176,7 @@ public sealed partial class NativeCombatDegradationTests : IDisposable
     public void HealthHookDriftDisablesHealthAndAccuracyWhilePublicPlayerDeathRemainsAvailable()
     {
         var projectile = Capture();
-        AddForeignPatchAndInspect(typeof(Health).GetMethod(nameof(Health.Hurt))!);
+        RemoveOwnedCallbackAndInspect(typeof(Health).GetMethod(nameof(Health.Hurt))!);
         Assert.False(adapter.CanObserveHealth);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, adapter.MetricCapabilities.Accuracy.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, adapter.MetricCapabilities.DamageDealt.State);
@@ -416,16 +416,22 @@ public sealed partial class NativeCombatDegradationTests : IDisposable
         Assert.Null(CombatHarmonyBridge.CurrentScope);
     }
 
-    private void AddForeignPatchAndInspect(MethodInfo method)
+    private void RemoveOwnedCallbackAndInspect(MethodInfo method)
     {
         new HarmonyLib.Harmony("foreign.combat-test").Patch(method,
             new HarmonyLib.HarmonyMethod(typeof(NativeCombatDegradationTests).GetMethod(nameof(ForeignPrefix), BindingFlags.NonPublic | BindingFlags.Static)!),
             null, null, null);
+        // This degradation fixture now removes an actual UDS callback. Merely
+        // adding the foreign prefix is no longer a recording failure.
+        var info = HarmonyLib.Harmony.GetPatchInfo(method)!;
+        foreach (var collection in new[] { info.Prefixes, info.Postfixes, info.Finalizers })
+            collection.RemoveAll(patch => patch.owner == "at.bamboechop.ultimate-duckov-statistics.combat");
+        HarmonyLib.HarmonySharedState.Update(method);
         // Drive the actual incremental stamp-inspection method with a deterministic
         // clock; no game loop, wall-clock sleep, or private correlation mutation.
         var inspect = typeof(NativeCombatAttributionAdapter).GetMethod("InspectNextPatchStamp", BindingFlags.NonPublic | BindingFlags.Instance)!;
         var now = DateTime.UtcNow.AddSeconds(3);
-        for (var index = 0; index < 11; index++) inspect.Invoke(adapter, [now.AddSeconds(index)]);
+        for (var index = 0; index < Enum.GetValues<NativeCombatAttributionAdapter.CombatHook>().Length; index++) inspect.Invoke(adapter, [now.AddSeconds(index)]);
         Assert.Contains(diagnostics, value => value.Contains("after patch-set drift", StringComparison.Ordinal)
             && value.Contains(method.DeclaringType!.Name + "." + method.Name, StringComparison.Ordinal));
         Assert.Contains(HarmonyLib.Harmony.GetPatchInfo(method)!.Prefixes, value => value.owner == "foreign.combat-test");

@@ -89,8 +89,8 @@ public sealed class OverviewHealingEvidenceTests
             File.WriteAllText(save, "{\"SaveTime\":{\"value\":1}}");
             using var coordinator = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
             coordinator.Initialize();
-            // A foreign prefix makes real adapter activation fail before any capture is enabled.
-            new HarmonyLib.Harmony("foreign-healing").Patch(typeof(Health).GetMethod(nameof(Health.AddHealth))!,
+            // An unexpected callback claiming the UDS owner causes a real observer-integrity failure.
+            new HarmonyLib.Harmony(ReflectiveHarmonyPatcher.HarmonyId).Patch(typeof(Health).GetMethod(nameof(Health.AddHealth))!,
                 prefix: new HarmonyLib.HarmonyMethod(typeof(OverviewHealingEvidenceTests).GetMethod(nameof(ForeignPrefix), BindingFlags.NonPublic | BindingFlags.Static)!), postfix: null, transpiler: null, finalizer: null);
             using var buffs = CreateBuffAdapter(out var buffBoundary);
             using var adapter = new NativeHealingAttributionAdapter(coordinator.HandleHealing, _ => { }, buffBoundary);
@@ -176,7 +176,7 @@ public sealed class OverviewHealingEvidenceTests
                 checkpointCompletionPoller: coordinator.PollRunCheckpoint, checkpointCompletionFlusher: coordinator.FlushRunCheckpoint,
                 monotonicSecondsProvider: () => now);
             void Publish(Core.Persistence.CapabilityRecord cap) => NativeHealingCapabilityPublication.Publish(cap, lifecycle, coordinator);
-            void ForeignPatch() => new HarmonyLib.Harmony("foreign-healing-run").Patch(typeof(Health).GetMethod(nameof(Health.AddHealth))!,
+            void ForeignPatch() => new HarmonyLib.Harmony(ReflectiveHarmonyPatcher.HarmonyId).Patch(typeof(Health).GetMethod(nameof(Health.AddHealth))!,
                 prefix: new HarmonyLib.HarmonyMethod(typeof(OverviewHealingEvidenceTests).GetMethod(nameof(ForeignPrefix), BindingFlags.NonPublic | BindingFlags.Static)!), postfix: null, transpiler: null, finalizer: null);
             if (disabledAtStart) ForeignPatch();
             using var buffs = CreateBuffAdapter(out var buffBoundary);

@@ -74,9 +74,11 @@ internal sealed partial class NativeEncounterLootObserver : IEncounterObserver
             Add(typeof(LootView), "OnClose", typeof(void), Type.EmptyTypes, nameof(ViewClosePrefix), null, null);
             Add(typeof(LootView), "OnDisable", typeof(void), Type.EmptyTypes, nameof(ViewClosePrefix), null, null);
             Add(typeof(ItemExtensions), "Drop", typeof(DuckovItemAgent), new[] { typeof(Item), typeof(Vector3), typeof(bool), typeof(Vector3), typeof(float) }, nameof(WorldDropPrefix), null, null);
-            if (!ReflectiveHarmonyPatcher.TryCreate(OwnerId, out var patcher, out var detail) || patcher == null)
+            if (!ReflectiveHarmonyPatcher.TryCreate(OwnerId, out var patcher, out var detail,
+                    HarmonyForeignPatchPolicy.Observe) || patcher == null)
                 throw new InvalidOperationException(detail);
             lease.Attach(patcher);
+            patcher.ObservationDiagnostic = log;
             // Shared death/corpse boundaries come from the existing container bridge.
             // Low-level item targets retain strict isolated patch ownership.
             foreach (var registration in registrations)

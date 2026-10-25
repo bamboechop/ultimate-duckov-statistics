@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/UltimateDuckovStatistics.Core/UltimateDuckovStatistics.Core.csproj" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.1" Condition="'$(HarmonyAssemblyPath)' == ''" />
+    <Reference Include="0Harmony" Condition="'$(HarmonyAssemblyPath)' != ''"><HintPath>$(HarmonyAssemblyPath)</HintPath><Private>true</Private></Reference>
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/ReflectiveHarmonyPatcher.cs" Link="Production/ReflectiveHarmonyPatcher.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/KnownModCompatibility.cs" Link="Production/KnownModCompatibility.cs" />
+  </ItemGroup>
+  <Target Name="RequireHarmony" BeforeTargets="ResolveReferences" Condition="'$(HarmonyAssemblyPath)' != '' And !Exists('$(HarmonyAssemblyPath)')">
+    <Error Text="Pass -p:HarmonyAssemblyPath pointing to the installed 0Harmony.dll." />
+  </Target>
+</Project>

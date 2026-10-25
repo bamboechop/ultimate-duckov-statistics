@@ -7,6 +7,34 @@ public sealed class HarmonyPatchSetInspectorTests
 {
     private const string Owner = "at.bamboechop.ultimate-duckov-statistics.healing";
 
+    [Theory]
+    [InlineData("Prefixes")]
+    [InlineData("Postfixes")]
+    [InlineData("Transpilers")]
+    [InlineData("Finalizers")]
+    public void ObservationPolicyKeepsForeignPresenceSeparateFromOwnedCallbackIntegrity(string collection)
+    {
+        var info = CreateExactPatchSet();
+        info.Collection(collection).Add(new FakePatch("unfamiliar.mod", Callback(nameof(ForeignCallback))));
+        Assert.True(HarmonyPatchSetInspector.TryValidate(info, Owner, ExpectedPatches(), out var detail,
+            foreignPatchPolicy: HarmonyForeignPatchPolicy.Observe), detail);
+        Assert.Contains("unfamiliar.mod", detail, StringComparison.Ordinal);
+        info.Postfixes.Clear();
+        Assert.False(HarmonyPatchSetInspector.TryValidate(info, Owner, ExpectedPatches(), out detail,
+            foreignPatchPolicy: HarmonyForeignPatchPolicy.Observe));
+        Assert.Contains("Required UDS patch is missing", detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ObservationPolicyStillRejectsDuplicateOwnedCallbacks()
+    {
+        var info = CreateExactPatchSet();
+        info.Prefixes.Add(new FakePatch(Owner, Callback(nameof(HealthPrefix))));
+        Assert.False(HarmonyPatchSetInspector.TryValidate(info, Owner, ExpectedPatches(), out var detail,
+            foreignPatchPolicy: HarmonyForeignPatchPolicy.Observe));
+        Assert.Contains("Duplicate UDS", detail, StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Category", "Healing")]
     public void ExactOwnedPatchSetIsTrusted()

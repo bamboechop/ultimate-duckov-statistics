@@ -14,6 +14,7 @@ internal enum EncounterCombatHookLoss
     Environmental = 128,
     GrenadeOwnership = 256,
     HeadshotEvidence = 512,
+    BarrelExplosion = 1024,
     ProjectileSource = ProjectileInit | ProjectileUpdate,
-    All = Health | ProjectileSource | ProjectileRelease | Melee | Effect | BuffOwnership | Environmental | GrenadeOwnership | HeadshotEvidence
+    All = Health | ProjectileSource | ProjectileRelease | Melee | Effect | BuffOwnership | Environmental | GrenadeOwnership | HeadshotEvidence | BarrelExplosion
 }

@@ -8,6 +8,7 @@ internal sealed class EntityDisplayNames(Func<string, string?>? resolve = null,
 
     internal string Get(string? id, string? recorded)
     {
+        if (id == Core.Domain.CombatSourceIds.ExplosiveBarrel) return UiText.Get("ui.explosive_barrel");
         if (resolve != null && !string.IsNullOrWhiteSpace(id))
         {
             try

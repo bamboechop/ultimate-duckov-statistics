@@ -223,6 +223,23 @@ public sealed class CraftingCompletionBoundary
         }
     }
 
+    public bool TrySetObservedPayment(CraftingCompletionToken token,
+        IReadOnlyList<CraftingResourceCostEvidence> resources, long currency,
+        bool resourcesProven, bool currencyProven)
+    {
+        if (currency < 0) throw new ArgumentOutOfRangeException(nameof(currency));
+        lock (sync)
+        {
+            if (token.BoundaryId != boundaryId || !pending.TryGetValue(token.Sequence, out var evidence)) return false;
+            var observed = new CraftingCompletionEvidence(evidence.OutputItemId, evidence.OutputDisplayName,
+                evidence.RecipeId, evidence.ProducedQuantity, resources, currency, resourcesProven, currencyProven);
+            pending[token.Sequence] = new CraftingCompletionEvidence(observed.OutputItemId, observed.OutputDisplayName,
+                observed.RecipeId, observed.ProducedQuantity, CanonicalizeResources(observed),
+                currencyProven ? currency : 0, resourcesProven, currencyProven);
+            return true;
+        }
+    }
+
     public int InvalidateAllResourceEvidence()
     {
         lock (sync)

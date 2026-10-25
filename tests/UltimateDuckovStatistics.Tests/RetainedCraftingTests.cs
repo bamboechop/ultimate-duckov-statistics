@@ -12,6 +12,19 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class RetainedCraftingTests
 {
     [Fact]
+    public void HistoricalCostGapKeepsRecordedValuesWithoutClaimingCurrentAdapterFailure()
+    {
+        var profile = Profile();
+        Craft(profile, "1", "Known output", "known", 1, "2", 3);
+        Craft(profile, "1", "Unknown-cost output", "gap", 1, resourcesProven: false);
+        var result = Present(profile, Supported());
+        Assert.Equal(3, Assert.Single(result.Resources).Count);
+        Assert.Equal(UiText.Get("ui.crafting_recorded_partial"), result.ResourceNotice);
+        Assert.DoesNotContain(UiText.Get("ui.crafting_resource_current_unavailable"), result.ResourceNotice, StringComparison.Ordinal);
+        Assert.Equal(2, Assert.Single(result.Outputs).Count);
+    }
+
+    [Fact]
     public void CurrentLanguageResolvesOutputsResourcesAndReciprocalDetailsWithoutRewritingCrafts()
     {
         var profile = Profile(); Craft(profile, "131", "Tasse", "1026", 1, "764", 4, "Polyethylen-Folie");
@@ -232,8 +245,11 @@ public sealed class RetainedCraftingTests
     {
         var p = Profile(); p.Statistics.Crafting.ResourceHistoryUnavailable = true;
         var result = Present(p); Assert.Empty(result.Outputs); Assert.Empty(result.Resources);
-        Assert.Empty(result.OutputNotice); Assert.Empty(result.ResourceNotice);
-        Assert.Empty(Document(result).Surfaces); Assert.Empty(Document(result, resources: true).Surfaces);
+        Assert.Empty(result.OutputNotice);
+        Assert.Equal(UiText.Get("ui.crafting_recorded_partial"), result.ResourceNotice);
+        Assert.Empty(Document(result).Surfaces);
+        Assert.Contains(Document(result, resources: true).Rows,
+            row => row.Kind == EquipmentRowKind.Notice && row.Name == result.ResourceNotice);
         Assert.Equal(UiText.Get("ui.crafting_outputs_empty"), result.OutputEmpty);
     }
     [Theory]

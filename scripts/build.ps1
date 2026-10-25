@@ -25,6 +25,11 @@ foreach ($configuration in @('Debug', 'Release')) {
     if ($LASTEXITCODE -ne 0) { throw "$configuration shell tests failed with exit code $LASTEXITCODE." }
 }
 
+dotnet run --project (Join-Path $repoRoot 'tools\HarmonyObservationProbe\HarmonyObservationProbe.csproj') -c Release
+if ($LASTEXITCODE -ne 0) {
+    throw "Harmony observation probe failed with exit code $LASTEXITCODE."
+}
+
 dotnet run --project (Join-Path $repoRoot 'tools\DuckovContractProbe\DuckovContractProbe.csproj') -c Release --no-restore -- $env:DUCKOV_PATH
 if ($LASTEXITCODE -ne 0) {
     throw "Duckov contract probe failed with exit code $LASTEXITCODE."

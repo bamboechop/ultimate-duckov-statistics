@@ -472,9 +472,11 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
                 ?? throw new MissingMethodException("GameClock.Step(float)");
             if (sleepAdvanceMethod.ReturnType != typeof(void))
                 throw new MissingMethodException("GameClock.Step(float) return type is incompatible.");
-            if (!ReflectiveHarmonyPatcher.TryCreate(HarmonyId, out var patcher, out var harmonyDetail) || patcher == null)
+            if (!ReflectiveHarmonyPatcher.TryCreate(HarmonyId, out var patcher, out var harmonyDetail,
+                    HarmonyForeignPatchPolicy.Observe) || patcher == null)
                 throw new InvalidOperationException(harmonyDetail);
             patcherLease.Attach(patcher);
+            patcher.ObservationDiagnostic = diagnosticHandler;
             if (!patcher.IsPatchSetTrusted(sleepAdvanceMethod, Array.Empty<HarmonyPatchExpectation>(), out var trustDetail))
                 throw new InvalidOperationException($"Unsafe pre-existing GameClock.Step patch set: {trustDetail}");
             WorldTimeHarmonyBridge.Attach(this);
@@ -562,6 +564,6 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 
     private static Exception Unwrap(Exception exception) =>
         exception is TargetInvocationException { InnerException: not null } invocation
-            ? invocation.InnerException
+            ? invocation.InnerException!
             : exception;
 }

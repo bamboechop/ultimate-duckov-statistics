@@ -38,8 +38,11 @@ public sealed class RunCapabilityAndIntegrityPolicyTests
     [Fact]
     [Trait("Category", "Run")]
     [Trait("Category", "Integrity")]
-    public void GameplayModsAndCheatRulesRemainExplicitlyDisqualifying()
+    public void GameplayModsRemainTaggedWithoutDisqualifyingPersonalRecords()
     {
+        Assert.True(RunIntegrityPolicy.AllowsRecords(IntegrityTags.ModdedContent));
+        Assert.False(RunIntegrityPolicy.AllowsRecords(IntegrityTags.CheatOrCustomDifficulty));
+        Assert.False(RunIntegrityPolicy.AllowsRecords(IntegrityTags.Unknown));
         Assert.Equal(
             IntegrityTags.ModdedContent,
             RunIntegrityPolicy.Evaluate(false, new[] { ProductInfo.ModId, "GameplayOverhaul" }));

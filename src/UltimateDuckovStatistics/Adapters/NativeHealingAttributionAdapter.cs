@@ -27,6 +27,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     private bool lifecycleSubscribed;
     private bool retryWhenHarmonyLoads;
     private bool retryWhenBuffObservationAvailable;
+    private bool optionalIntegrationLimited;
     private DateTime nextInitializationAttemptUtc;
     private string? lastHarmonyInitializationFailure;
     private readonly IncrementalPatchInspectionScheduler patchInspectionScheduler = new(TimeSpan.FromSeconds(2));
@@ -70,7 +71,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             }
         }
 
-        if (Capability.State == AdapterCapabilityState.Supported && patcherLease.Value != null)
+        if (Capability.State != AdapterCapabilityState.DisabledIncompatible && patcherLease.Value != null)
         {
             return Capability;
         }
@@ -91,7 +92,8 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             return Capability;
         }
 
-        if (!ReflectiveHarmonyPatcher.TryCreate(out var createdPatcher, out var harmonyDetail)
+        if (!ReflectiveHarmonyPatcher.TryCreate(ReflectiveHarmonyPatcher.HarmonyId, out var createdPatcher, out var harmonyDetail,
+                HarmonyForeignPatchPolicy.Observe)
             || createdPatcher == null)
         {
             retryWhenHarmonyLoads = ReflectiveHarmonyPatcher.HasPendingCleanup
@@ -108,12 +110,20 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
         lastHarmonyInitializationFailure = null;
         patcherLease.Attach(createdPatcher);
+        createdPatcher.ObservationDiagnostic = diagnosticHandler;
         var patcher = createdPatcher;
         try
         {
+            optionalIntegrationLimited = false;
             if (!NativeBecomeVeteranHealingCompatibility.TryDiscover(tracker, IsBecomeVeteranTrusted,
                     detail => SchedulePatchSetConflict(null, detail), out becomeVeteran, out var veteranDetail))
-                throw new InvalidOperationException(veteranDetail);
+            {
+                // Unknown private mod internals cannot prove queued source credit,
+                // but must not suppress independently observed native item healing.
+                becomeVeteran = null;
+                optionalIntegrationLimited = true;
+                diagnosticHandler(veteranDetail + " Native item healing remains active; unbound queued healing is not attributed.");
+            }
 
             var methods = new[] { healthMethod, effectMethod }.Concat(
                 becomeVeteran?.Patches.Select(patch => patch.Original) ?? Enumerable.Empty<MethodInfo>());
@@ -176,7 +186,8 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             SetCapability(new CapabilityRecord
             {
                 AdapterId = AdapterId,
-                State = HealingCapabilityPolicy.GetState(HealingCapabilityCondition.Available),
+                State = optionalIntegrationLimited ? AdapterCapabilityState.Experimental
+                    : HealingCapabilityPolicy.GetState(HealingCapabilityCondition.Available),
                 Version = AdapterVersion,
                 Detail = $"Exact main-duck Health.AddHealth attribution via HarmonyLib {patcher.Version}; no Harmony assembly is bundled. {veteranDetail}"
             });
@@ -216,7 +227,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         if (retryWhenBuffObservationAvailable && buffApplicationObservationBoundary.IsTrusted)
             Initialize();
 
-        if (Capability.State != AdapterCapabilityState.Supported)
+        if (Capability.State == AdapterCapabilityState.DisabledIncompatible)
         {
             return;
         }
@@ -268,7 +279,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     public void BeginUse(ItemUseSnapshot snapshot)
     {
-        if (Capability.State != AdapterCapabilityState.Supported)
+        if (Capability.State == AdapterCapabilityState.DisabledIncompatible)
         {
             return;
         }
@@ -297,7 +308,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     public void BeginApplication(int runtimeItemId)
     {
-        if (Capability.State != AdapterCapabilityState.Supported)
+        if (Capability.State == AdapterCapabilityState.DisabledIncompatible)
         {
             return;
         }
@@ -344,12 +355,12 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     public string? TryGetUseCorrelation(int runtimeItemId) => tracker.TryGetUseCorrelation(runtimeItemId);
 
-    public bool CanObserveBuffProvenance => Capability.State == AdapterCapabilityState.Supported
+    public bool CanObserveBuffProvenance => Capability.State != AdapterCapabilityState.DisabledIncompatible
                                             && buffApplicationObservationBoundary.IsTrusted;
 
     private bool IsBecomeVeteranTrusted()
     {
-        if (Capability.State != AdapterCapabilityState.Supported || becomeVeteran == null || !HasTrustedBuffDependency()) return false;
+        if (Capability.State == AdapterCapabilityState.DisabledIncompatible || becomeVeteran == null || !HasTrustedBuffDependency()) return false;
         foreach (var registration in patchRegistrations)
         {
             if (registration.Point != HealingPatchPoint.BecomeVeteran) continue;
@@ -362,7 +373,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     public bool IsPatchPointTrusted(HealingPatchPoint patchPoint)
     {
-        if (Capability.State != AdapterCapabilityState.Supported)
+        if (Capability.State == AdapterCapabilityState.DisabledIncompatible)
         {
             return false;
         }

@@ -7,6 +7,9 @@ internal static class EncounterDamageText
 {
     internal static IReadOnlyList<(string Text, int? Icon)> Parts(EncounterDamage damage, Func<int?, string> itemName, Func<string, string> text)
     {
+        if (damage.Source.Mechanism == "barrel-explosion")
+            return new[] { (text("ui.explosive_barrel"), (int?)null),
+                (string.Format(CultureInfo.CurrentCulture, text(damage.Hits == 1 ? "ui.encounters_hit_one" : "ui.encounters_hit_count"), damage.Hits), (int?)null) };
         var parts = new List<(string Text, int? Icon)> { (itemName(damage.Source.WeaponTypeId), damage.Source.WeaponTypeId) };
         var mechanism = damage.Source.Mechanism;
         if (mechanism is "effect" or "unscoped-effect")

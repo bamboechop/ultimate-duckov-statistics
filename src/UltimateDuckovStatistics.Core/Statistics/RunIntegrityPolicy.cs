@@ -6,6 +6,12 @@ public static class RunIntegrityPolicy
 {
     public const string HarmonyLoaderModId = "HarmonyLoadMod";
 
+    // Mods are normal for a personal playthrough. Keep their tag as context,
+    // without suppressing personal duration and distance records.
+    public static bool AllowsRecords(IntegrityTags tags) =>
+        tags is IntegrityTags.Normal or IntegrityTags.ModdedContent
+            or (IntegrityTags.Normal | IntegrityTags.ModdedContent);
+
     public static IntegrityTags Accumulate(IntegrityTags accumulated, IntegrityTags observed)
     {
         var accumulatedFlags = accumulated & ~IntegrityTags.Normal;
