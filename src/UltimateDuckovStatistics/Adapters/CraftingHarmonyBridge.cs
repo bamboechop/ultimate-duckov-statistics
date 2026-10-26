@@ -12,47 +12,27 @@ internal sealed class CraftingNativeScope
         NativeCraftingAdapter owner,
         CraftingDeliveryCorrelation correlation,
         CraftingResourcePaymentProof resourcePaymentProof,
-        string resourceEvidenceFailureDetail,
-        string currencyEvidenceFailureDetail)
+        int outputTypeId)
     {
         Owner = owner;
         Correlation = correlation;
         ResourcePaymentProof = resourcePaymentProof;
-        ResourceEvidenceFailureDetail = resourceEvidenceFailureDetail ?? string.Empty;
-        CurrencyEvidenceFailureDetail = currencyEvidenceFailureDetail ?? string.Empty;
+        OutputTypeId = outputTypeId;
     }
 
     public NativeCraftingAdapter Owner { get; }
     public CraftingDeliveryCorrelation Correlation { get; }
     public CraftingResourcePaymentProof ResourcePaymentProof { get; }
-    public string ResourceEvidenceFailureDetail { get; private set; }
-    public string CurrencyEvidenceFailureDetail { get; }
+    public int OutputTypeId { get; }
+    public bool OutputUnobserved { get; set; }
+    public string ResourceEvidenceFailureDetail => ResourcePaymentProof.ResourceDetail;
+    public string CurrencyEvidenceFailureDetail => ResourcePaymentProof.CurrencyDetail;
 
-    public void RecordResourceEvidenceFailure(string detail)
-    {
-        if (string.IsNullOrWhiteSpace(ResourceEvidenceFailureDetail))
-            ResourceEvidenceFailureDetail = detail ?? string.Empty;
-    }
-}
-
-internal readonly struct CraftingStackCountMutationState
-{
-    public CraftingStackCountMutationState(int beforeCount, bool wasBeingDestroyed, bool active)
-    {
-        BeforeCount = beforeCount;
-        WasBeingDestroyed = wasBeingDestroyed;
-        Active = active;
-    }
-
-    public int BeforeCount { get; }
-    public bool WasBeingDestroyed { get; }
-    public bool Active { get; }
 }
 
 internal static class CraftingHarmonyBridge
 {
     [ThreadStatic] private static ReferenceScopeStack<CraftingNativeScope>? scopes;
-    [ThreadStatic] private static ReferenceScopeStack<CraftingNativeScope>? paymentScopes;
     private static NativeCraftingAdapter? adapter;
 
     public static void Attach(NativeCraftingAdapter value) =>
@@ -132,7 +112,6 @@ internal static class CraftingHarmonyBridge
         try
         {
             if (!NativeCraftingAdapter.BeginNativePayment(scope, cost)) return null;
-            (paymentScopes ??= new ReferenceScopeStack<CraftingNativeScope>()).Push(scope);
             return scope;
         }
         catch (Exception exception)
@@ -142,54 +121,15 @@ internal static class CraftingHarmonyBridge
         }
     }
 
-    public static void ObserveItemCount(int itemTypeId, int count)
-    {
-        var scope = paymentScopes?.Current;
-        if (scope == null) return;
-        try { NativeCraftingAdapter.ObserveNativePaymentItemCount(scope, itemTypeId, count); }
-        catch (Exception exception) { scope.Owner.FailNativeCraftWrapping(scope, exception); }
-    }
-
-    public static CraftingStackCountMutationState BeginStackCountMutation(Item item) =>
-        paymentScopes?.Current == null
-            ? default
-            : new CraftingStackCountMutationState(item.StackCount, item.IsBeingDestroyed, active: true);
-
-    public static void ObserveStackCountMutation(Item item, CraftingStackCountMutationState state)
-    {
-        if (!state.Active) return;
-        var scope = paymentScopes?.Current;
-        if (scope == null) return;
-        try
-        {
-            NativeCraftingAdapter.ObserveNativePaymentStackCountMutation(
-                scope,
-                item,
-                state.BeforeCount,
-                item.StackCount,
-                state.WasBeingDestroyed);
-        }
-        catch (Exception exception) { scope.Owner.FailNativeCraftWrapping(scope, exception); }
-    }
-
-    public static void ObserveStackDestroyed(Item item)
-    {
-        var scope = paymentScopes?.Current;
-        if (scope == null) return;
-        try { NativeCraftingAdapter.ObserveNativePaymentStackDestroyed(scope, item); }
-        catch (Exception exception) { scope.Owner.FailNativeCraftWrapping(scope, exception); }
-    }
-
     public static void CompletePayment(CraftingNativeScope? scope, bool result)
     {
         if (scope == null) return;
-        try { scope.Owner.CompleteNativePayment(scope, result); }
+        try { NativeCraftingAdapter.CompleteNativePayment(scope, result); }
         catch (Exception exception) { scope.Owner.FailNativeCraftWrapping(scope, exception); }
     }
 
     public static void EndPayment(CraftingNativeScope? scope, Exception? exception)
     {
-        paymentScopes?.Pop(scope);
         if (scope == null || exception == null) return;
         NativeCraftingAdapter.AbandonNativePayment(scope);
     }
@@ -229,18 +169,6 @@ internal static class CraftingHarmonyCallbacks
         return __exception;
     }
 
-    private static void GetItemCountPostfix(int __0, int __result) =>
-        CraftingHarmonyBridge.ObserveItemCount(__0, __result);
-
-    private static void StackCountPrefix(Item __instance, out CraftingStackCountMutationState __state) =>
-        __state = CraftingHarmonyBridge.BeginStackCountMutation(__instance);
-
-    private static void StackCountPostfix(Item __instance, CraftingStackCountMutationState __state) =>
-        CraftingHarmonyBridge.ObserveStackCountMutation(__instance, __state);
-
-    private static void MarkDestroyedPrefix(Item __instance) =>
-        CraftingHarmonyBridge.ObserveStackDestroyed(__instance);
-
     public static MethodInfo CraftPrefixMethod => Get(nameof(CraftPrefix));
     public static MethodInfo CraftPostfixMethod => Get(nameof(CraftPostfix));
     public static MethodInfo CraftFinalizerMethod => Get(nameof(CraftFinalizer));
@@ -248,10 +176,6 @@ internal static class CraftingHarmonyCallbacks
     public static MethodInfo PayPrefixMethod => Get(nameof(PayPrefix));
     public static MethodInfo PayPostfixMethod => Get(nameof(PayPostfix));
     public static MethodInfo PayFinalizerMethod => Get(nameof(PayFinalizer));
-    public static MethodInfo GetItemCountPostfixMethod => Get(nameof(GetItemCountPostfix));
-    public static MethodInfo StackCountPrefixMethod => Get(nameof(StackCountPrefix));
-    public static MethodInfo StackCountPostfixMethod => Get(nameof(StackCountPostfix));
-    public static MethodInfo MarkDestroyedPrefixMethod => Get(nameof(MarkDestroyedPrefix));
 
     private static MethodInfo Get(string name) => typeof(CraftingHarmonyCallbacks).GetMethod(
         name,

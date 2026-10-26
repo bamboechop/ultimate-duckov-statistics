@@ -1,3 +1,18 @@
+# Ultimate Duckov Statistics 1.6.0
+
+Version 1.6.0 focuses on recording modded personal playthroughs and clearer combat evidence.
+
+- **Record by default with other mods:** unfamiliar mod patches no longer disable a statistic just because they are present. UDS continues recording observed results, checks that its own observers remain installed, and keeps uncertain ownership or missing evidence explicit.
+- **Personal records in modded runs:** ordinary modded extractions and deaths can contribute to personal records. Mod tags stay visible; interrupted runs, unknown integrity, cheats/custom difficulty and unavailable lifecycle evidence keep their existing duration-record exclusions.
+- **First Person Camera compatibility:** support the installed FPC build and keep independently observed damage and kills available when a separate source detail cannot be proven. Private headshot behavior still requires verified evidence.
+- **Explosive barrels:** credit a player-triggered barrel kill to the explosion, with a distinct burst icon. It no longer borrows the triggering gun, ammunition, accuracy hit or headshot. Chained explosions retain their source scope.
+- **Measured crafting costs:** record net resources and Money plus Cash removed by a successful payment, including modified prices, free crafts and repeated ingredients. Delivered output remains visible when payment evidence is missing or ambiguous, with the affected costs marked incomplete.
+- **Clearer statistics and diagnostics:** retain captured kills and damage when older history is incomplete, distinguish current tracking from historical gaps, and replace repeated technical explanations with concise localized notices.
+
+Requires Duckov 2.3.30 on Windows and separately installed HarmonyLib. Profile/export schema 1 and the `v1` data directory are unchanged. Existing current-format statistics and settings are preserved. This release does not automatically reconstruct missing history, requalify older excluded records, or apply the separately requested slot-specific repairs performed during development.
+
+The candidate package is `UltimateDuckovStatistics-v1.6.0.zip` plus its `.sha256` sidecar. It contains the same 13 installable files and excludes diagnostic instrumentation and game/Harmony binaries. See [installation](INSTALL.md), [recording policy](docs/RECORD_BY_DEFAULT.md), and [validation evidence](TESTING.md). Native combat, extraction, container access, item-cost crafting and bandage healing have been exercised. Paid crafting could not be exercised because no paid recipe is available in the current playthrough; throwables remain unverified. GitHub release publication and Workshop upload/subscription verification remain separate steps.
+
 # Ultimate Duckov Statistics 1.5.0
 
 [Version 1.5.0 is released on GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.5.0), adding a configurable player kill feed and clearer spacing on the results screen.

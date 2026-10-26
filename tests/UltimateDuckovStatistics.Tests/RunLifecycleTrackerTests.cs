@@ -6,6 +6,19 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class RunLifecycleTrackerTests
 {
+    [Fact]
+    public void ModdedPlaythroughRetainsTagsAndProducesDurationRecords()
+    {
+        var tracker = StartedTracker();
+        Assert.True(tracker.ObserveIntegrity(IntegrityTags.ModdedContent));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
+        Assert.Equal(IntegrityTags.ModdedContent, run.IntegrityTags);
+        Assert.True(run.RecordEligible);
+        var statistics = new ProfileStatistics { SaveGenerationId = run.SaveGenerationId };
+        Assert.True(RunReducer.Apply(statistics, run));
+        Assert.Equal(run.RunId, statistics.RunRecords.Extraction.Shortest!.RunId);
+    }
+
     private static readonly DateTime Origin = new(2026, 8, 10, 10, 0, 0, DateTimeKind.Utc);
 
     [Fact]

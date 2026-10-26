@@ -43,6 +43,26 @@ public sealed class NativePlayerKillFeedHudTests : IDisposable
     }
 
     [Fact]
+    public void BarrelBurstDoesNotDependOnAWeaponSprite()
+    {
+        hud.Record(Kill("barrel") with { WeaponId = CombatSourceIds.ExplosiveBarrel }, 8.88); hud.Tick();
+        var row = Root().GetChild(0);
+        var burst = (RectTransform)row.Find("Explosion")!;
+        Assert.NotNull(burst);
+        Assert.True(burst.gameObject.activeSelf);
+        Assert.Equal(1, burst.childCount);
+        foreach (var image in burst.GetComponentsInChildren<Image>())
+        {
+            Assert.Equal(Color.white, image.color);
+            Assert.False(image.raycastTarget);
+            Assert.True(((RectTransform)image.transform).sizeDelta.x > 0);
+        }
+        Assert.False(row.Find("UnknownWeapon")!.gameObject.activeSelf);
+        hud.Record(Kill("ordinary"), 4); hud.Tick();
+        Assert.False(Root().GetChild(0).Find("Explosion")!.gameObject.activeSelf);
+    }
+
+    [Fact]
     public void NativeStormBoundsControlAlignmentAndHiddenStormUsesWeatherBottom()
     {
         hud.Record(Kill("1"), 35.29); hud.Tick();

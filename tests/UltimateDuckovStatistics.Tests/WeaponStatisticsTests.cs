@@ -153,7 +153,7 @@ public sealed class WeaponStatisticsTests
         var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
 
         Assert.True(summary.IntegrityTags.HasFlag(IntegrityTags.ModdedContent));
-        Assert.False(summary.RecordEligible);
+        Assert.True(summary.RecordEligible);
     }
 
     [Fact]

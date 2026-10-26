@@ -33,28 +33,28 @@ public static class CombatNativeContractPolicy
         var completeOwnership = support.HealthHurt && support.BuffApplication && support.EffectTrigger;
         return new CombatMetricCapabilities
         {
-            DamageDealt = Availability(completeOwnership, "Health.Hurt pre/post CurrentHealth delta for exact enemy targets owned by the main duck, with trusted buff actor and effect-scope observation.", "Damage dealt requires exact Health.Hurt plus trusted buff actor and effect-scope observation."),
+            DamageDealt = Coverage(support.HealthHurt, completeOwnership, "Observed health loss with proven player ownership.", "Some source paths are unavailable; independently proven player damage continues."),
             DamageReceived = Availability(support.HealthHurt, "Health.Hurt pre/post CurrentHealth delta for Health.IsMainCharacterHealth.", "Exact Health.Hurt is unavailable."),
             RangedHits = Availability(ranged, "One unique player projectile that causes positive actual enemy HP loss counts once.", "Complete ranged-hit attribution requires Health.Hurt and Projectile.Init/Update/Release."),
             Accuracy = Availability(ranged, "Unique player projectiles causing positive enemy HP loss divided by completed player projectiles.", "Compatible accuracy requires Health.Hurt and Projectile.Init/Update/Release."),
             MeleeSwings = Availability(support.PublicMeleeSwing, "CharacterMainControl.attackAction.OnAttack proves an accepted main-duck melee attack action.", "The public melee action callback is unavailable."),
             MeleeHits = Availability(meleeHit, "One accepted melee damage scope causing positive enemy HP loss counts once.", "Melee hits require Health.Hurt and the melee collision scope."),
             PlayerDeaths = Availability(support.PublicPlayerDeath, "LevelManager.OnMainCharacterDead proves one main-duck death per run.", "The public main-character death callback is unavailable."),
-            Ownership = Availability(completeOwnership, "Exact main character, credited/physical projectile actor, native pet/master/leader chain, proven actorless world scope, or explicit OtherNpc/Unknown, with trusted buff actor and effect-scope observation.", "Ownership requires exact Health.Hurt plus trusted buff actor and effect-scope observation."),
+            Ownership = Coverage(support.HealthHurt, completeOwnership, "Agreed event-time actor evidence; ambiguous actors remain Unknown.", "Some actor paths are unavailable; independently proven ownership continues."),
             EnemyIdentity = Availability(deathOrHealth, "CharacterRandomPreset.nameKey with stable preset/name fallback.", "Enemy/killer identity requires Health.Hurt or the public player-death callback."),
             EnemyFamily = Availability(support.HealthHurt, "Health.isZombie exposes the Zombie family; other families remain explicitly unknown.", "Enemy family requires exact Health.Hurt."),
             Cause = Availability(deathOrHealth, "Effect, explosion, real-damage, environmental, or direct context attached to proven health/death evidence.", "Damage cause requires Health.Hurt or the public player-death callback."),
-            WeaponIdentity = Availability(completeOwnership, "DamageInfo.fromWeaponItemID or projectile initialization snapshot at event time, with trusted buff reapplication and effect-scope observation.", "Complete weapon identity requires exact Health.Hurt plus trusted buff actor and effect-scope observation."),
+            WeaponIdentity = Coverage(support.HealthHurt, completeOwnership, "Event-time native weapon or proven source snapshot.", "Some source paths are unavailable; independently proven weapon identity continues."),
             AmmunitionIdentity = Availability(projectileDamage || (support.PublicPlayerDeath && support.ProjectileInit && support.ProjectileUpdate), "ProjectileContext ammunition snapshot retained on damage, completion, and death outcomes.", "Ammunition identity requires Projectile.Init/Update plus proven health or death evidence."),
-            DamageOverTime = Availability(effectDamage && support.BuffApplication, "ItemStatsSystem TickTrigger/UpdateTrigger scope proves repeated effect damage; trusted buff application preserves actor and originating-equipment evidence.", "Damage over time requires an effect scope, proven health/death evidence, and trusted buff actor observation."),
+            DamageOverTime = Coverage(effectDamage, effectDamage && support.BuffApplication, "Observed effect scope with proven actor ownership.", "Buff provenance is unavailable; independently proven effect observations continue."),
             Headshots = Availability(projectileDamage && support.HeadshotEvidence, "Native launch-time head aim or the verified active First Person Camera target-specific head-hit result; generic critical damage is never headshot evidence.", "Headshots require Health.Hurt, Projectile.Init/Update and trusted native or First Person Camera headshot evidence."),
             HeadshotFinalBlows = Availability(projectileDamage && support.HeadshotEvidence, "A proven player-owned headshot on the same target's fatal Health.Hurt transition.", "Headshot final blows require Health.Hurt, Projectile.Init/Update and trusted native or First Person Camera headshot evidence."),
-            ThrowableKills = Availability(completeOwnership && support.GrenadeExplosion, "Proven player final blows during item-sourced Grenade.Explode damage.", "Throwable kills require trusted grenade explosion and player ownership hooks."),
-            KillsByYou = Availability(completeOwnership, "Only a fatal enemy Health.Hurt transition with proven player ownership and trusted buff actor and effect-scope observation counts.", "Kills by you require exact Health.Hurt plus trusted buff actor and effect-scope observation."),
+            ThrowableKills = Coverage(support.HealthHurt && support.GrenadeExplosion, completeOwnership && support.GrenadeExplosion, "Proven player final blows during item-sourced grenade damage.", "Some source paths are unavailable; independently proven grenade kills continue."),
+            KillsByYou = Coverage(support.HealthHurt, completeOwnership, "Fatal enemy health transitions with proven player ownership.", "Some source paths are unavailable; independently proven player kills continue."),
             ObservedWorldDeaths = Availability(
-                completeOwnership,
-                "Every non-player or ambiguous fatal enemy transition remains separate from player kills; trusted buff actor/effect-scope observation and the exact ZoneDamage scope distinguish Unknown from proven actorless Environmental events.",
-                "Observed-world deaths require exact Health.Hurt plus trusted buff actor and effect-scope observation.")
+                support.HealthHurt,
+                "Observed fatal enemy transitions remain separate from player kills; ambiguous actor evidence stays Unknown.",
+                "Observed-world deaths require the native health transition observer.")
         };
     }
 
@@ -109,6 +109,24 @@ public static class CombatNativeContractPolicy
     private static MetricAvailability Supported(string provenance) => new()
     { State = AdapterCapabilityState.Supported, Provenance = provenance };
 
+    private static MetricAvailability Coverage(bool observable, bool complete, string full, string partial) =>
+        !observable ? Unavailable("The required native observation is unavailable.")
+            : new() { State = complete ? AdapterCapabilityState.Supported : AdapterCapabilityState.Experimental,
+                Provenance = complete ? full : partial };
+
+    // Coverage describes the adapter's available paths. A particular event can
+    // still prove these facts; this never upgrades historical aggregate coverage.
+    public static void MarkProvenHealthOutcome(CombatRecorded value)
+    {
+        if (value == null) throw new ArgumentNullException(nameof(value));
+        if (value.Ownership != CombatOwnership.Unknown)
+            value.Capabilities.Ownership = Supported("Agreed event-time source evidence.");
+        if (value.Ownership == CombatOwnership.Player && value.ActualDamageDealt > 0)
+            value.Capabilities.DamageDealt = Supported("Observed health loss attributed to the proven player source.");
+        if (value.Ownership == CombatOwnership.Player && value.KillsByYou > 0)
+            value.Capabilities.KillsByYou = Supported("Observed fatal health transition attributed to the proven player source.");
+    }
+
     private static MetricAvailability Unavailable(string provenance) => new()
     { State = AdapterCapabilityState.DisabledIncompatible, Provenance = provenance };
 
@@ -121,6 +139,7 @@ public static class CombatNativeContractPolicy
 
 public sealed record class CombatHookSupport
 {
+    public bool BarrelExplosion { get; set; }
     public bool HeadshotEvidence { get; set; } = true;
     public bool GrenadeLaunch { get; set; }
     public bool GrenadeObjectCreation { get; set; }

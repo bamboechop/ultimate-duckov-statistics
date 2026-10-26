@@ -125,6 +125,8 @@
              Link="ProductionAdapters\NativeProfileResetTransition.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeWorldTimeObservationBoundary.cs"
              Link="ProductionAdapters\NativeWorldTimeObservationBoundary.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeWorldTimeAdapter.cs" Link="ProductionAdapters/NativeWorldTimeAdapter.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/WorldTimeHarmonyBridge.cs" Link="ProductionAdapters/WorldTimeHarmonyBridge.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeWorldTimeProfileHandoffBoundary.cs"
              Link="ProductionAdapters\NativeWorldTimeProfileHandoffBoundary.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeWorldTimeProfileBinding.cs"

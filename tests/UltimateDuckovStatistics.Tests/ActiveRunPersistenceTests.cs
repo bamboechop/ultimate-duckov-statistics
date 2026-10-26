@@ -1949,13 +1949,13 @@ public sealed class ActiveRunPersistenceTests
         if (!applicationObservationTrusted || !effectTriggerTrusted)
         {
             Assert.Equal(
-                AdapterCapabilityState.DisabledIncompatible,
+                AdapterCapabilityState.Experimental,
                 run.CombatStatistics.Capabilities.KillsByYou.State);
             Assert.Equal(
-                AdapterCapabilityState.DisabledIncompatible,
+                AdapterCapabilityState.Supported,
                 run.CombatStatistics.Capabilities.ObservedWorldDeaths.State);
             Assert.Equal(
-                AdapterCapabilityState.DisabledIncompatible,
+                effectTriggerTrusted ? AdapterCapabilityState.Experimental : AdapterCapabilityState.DisabledIncompatible,
                 run.CombatStatistics.Capabilities.DamageOverTime.State);
         }
 
@@ -1983,8 +1983,14 @@ public sealed class ActiveRunPersistenceTests
                 Assert.Single(exportedRun.Segments).CombatStatistics };
             Assert.All(scopes, combat =>
             {
-                Assert.Equal(AdapterCapabilityState.DisabledIncompatible, combat.Capabilities.KillsByYou.State);
-                Assert.Equal(AdapterCapabilityState.DisabledIncompatible, combat.Capabilities.ObservedWorldDeaths.State);
+                // The checkpoint segment retains its observed coverage. Export
+                // restricts derived scopes using the fixture's unpublished native
+                // capability state; that gap must not be silently upgraded.
+                var checkpointSegment = ReferenceEquals(combat, exportedRun.Segments[0].CombatStatistics);
+                Assert.Equal(checkpointSegment ? AdapterCapabilityState.Experimental : AdapterCapabilityState.DisabledIncompatible,
+                    combat.Capabilities.KillsByYou.State);
+                Assert.Equal(checkpointSegment ? AdapterCapabilityState.Supported : AdapterCapabilityState.DisabledIncompatible,
+                    combat.Capabilities.ObservedWorldDeaths.State);
             });
         }
         recovery.CloseClean();

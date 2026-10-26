@@ -8,6 +8,8 @@ using UltimateDuckovStatistics.Core.Tracking;
 
 namespace UltimateDuckovStatistics.Tests;
 
+// Exact allocation sampling must not overlap unrelated test collections.
+[Collection(NativeHotPathDiagnosticsTestGroup.CollectionName)]
 public sealed class EquipmentDurationPerformanceTests
 {
     private static readonly DateTime Origin = DateTime.UnixEpoch;

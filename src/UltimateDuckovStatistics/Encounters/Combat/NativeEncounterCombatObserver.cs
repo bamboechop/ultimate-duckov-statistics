@@ -16,6 +16,25 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
     public Core.Encounters.EncounterCaptureIssue? FailureIssue => enabled && reportedHookLoss == EncounterCombatHookLoss.None
         ? null : Core.Encounters.EncounterCaptureIssue.CombatIncomplete;
     internal const string OwnerId = "at.bamboechop.ultimate-duckov-statistics.encounters.combat";
+
+    internal static void ObserveHealthSourceAtCompletion(Health health, DamageInfo finalDamage,
+        bool sourceChanged, bool actorUncertain, bool headTargeted)
+    {
+        var frame = FindFrame(health);
+        if (frame == null || active == null) return;
+        frame.Headshot &= headTargeted;
+        if (!sourceChanged) return;
+        frame.Source = new SourceSnapshot
+        {
+            Kind = "changed-source", Provenance = "Source arguments changed during the observed health call",
+            ActorCreditResolved = !actorUncertain,
+            OriginallyPlayer = frame.Source.OriginallyPlayer,
+            Credited = active.Actor(actorUncertain ? null : finalDamage.fromCharacter)
+        };
+        frame.SourceActor = actorUncertain || finalDamage.fromCharacter == null
+            ? null : new WeakReference<CharacterMainControl>(finalDamage.fromCharacter);
+        if (frame.Candidate != null) frame.Candidate.SourcePosition = new();
+    }
     private const int MaximumOrigins = 2048;
     private static NativeEncounterCombatObserver? active;
     [ThreadStatic] private static HealthFrame? healthFrame;
@@ -52,11 +71,13 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
             if (active != null) throw new InvalidOperationException("Another encounter combat probe is active.");
             if (!string.Equals(Application.version, "2.3.30", StringComparison.Ordinal))
                 throw new NotSupportedException("Encounter combat probe requires inspected Duckov 2.3.30.");
-            if (!ReflectiveHarmonyPatcher.TryCreate(OwnerId, out var patcher, out var detail) || patcher == null)
+            if (!ReflectiveHarmonyPatcher.TryCreate(OwnerId, out var patcher, out var detail,
+                    HarmonyForeignPatchPolicy.Observe) || patcher == null)
                 throw new InvalidOperationException(detail);
             lease.Attach(patcher);
+            patcher.ObservationDiagnostic = log;
             // Shared methods are observed from existing combat-owner callbacks.
-            // Adding another owner there would intentionally fail aggregate trust.
+            // Keep one shared health boundary and one consistent source snapshot.
             _ = Exact(typeof(Health), "Hurt", typeof(bool), typeof(DamageInfo));
             setterMethod = typeof(Health).GetProperty(nameof(Health.CurrentHealth))?.SetMethod ?? throw new MissingMethodException("Health.CurrentHealth setter");
             if (!patcher.IsPatchSetTrusted(setterMethod, Array.Empty<HarmonyPatchExpectation>(), out detail))
@@ -140,6 +161,15 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
     {
         if (!HasActiveContext()) return;
         MeleePrefix(weapon, dealDamage, resolvedScope, out var state);
+        PushObserverState(state);
+    }
+
+    internal static void ObserveBarrelBegin(CombatNativeScope? scope)
+    {
+        if (!HasActiveContext()) return;
+        AttackState state;
+        if (scope?.IsBarrelExplosion == true) EnvironmentalPrefix(scope, out state);
+        else state = new AttackState(active!, attack);
         PushObserverState(state);
     }
 
@@ -293,7 +323,9 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
         if (targetMain && info.fromCharacter != null && info.fromCharacter.Health != null) MarkRelated(info.fromCharacter.Health);
         frame.Target = target != null ? Actor(target) : new ActorSnapshot { Id = sink.ActorId(health), Kind = "health-only" };
         frame.Source = source;
-        var sourceActor = CurrentSourceActor() ?? info.fromCharacter;
+        var sourceActor = info.isExplosion && attack?.Source.Kind == "projectile"
+            && (info.fromWeaponItemID <= 0 || info.fromWeaponItemID != attack.Source.WeaponId)
+            ? info.fromCharacter : CurrentSourceActor() ?? info.fromCharacter;
         if (!source.ActorCreditResolved) sourceActor = null;
         if (sourceActor != null) frame.SourceActor = new WeakReference<CharacterMainControl>(sourceActor);
         Emit("combat_hurt_begin", new
@@ -461,7 +493,9 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
 
     private SourceSnapshot ReadSource(DamageInfo info)
     {
-        if (attack?.Owner == this && (attack.Source.Kind != "projectile"
+        if (!(info.isExplosion && attack?.Source.Kind == "projectile"
+            && (info.fromWeaponItemID <= 0 || info.fromWeaponItemID != attack.Source.WeaponId))
+            && attack?.Owner == this && (attack.Source.Kind != "projectile"
             || (CombatHarmonyBridge.EncounterHookLoss & EncounterCombatHookLoss.ProjectileSource) == 0))
         {
             if (attack.Projectile != null && attack.Projectile.TryGetTarget(out var projectile) && projectile != null)
@@ -664,7 +698,7 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
             var credited = resolved ? resolvedScope!.CreditedSource : null;
             attack = new AttackRuntime(probe, new SourceSnapshot
             {
-                Kind = resolvedScope?.IsEffect == true ? "effect" : "environmental",
+                Kind = resolvedScope?.IsBarrelExplosion == true ? "barrel-explosion" : resolvedScope?.IsEffect == true ? "effect" : "environmental",
                 Provenance = "shared combat environmental ownership resolution", ActorCreditResolved = resolved,
                 Physical = probe.Actor(physical), Credited = probe.Actor(credited),
                 OriginallyPlayer = credited != null && ReferenceEquals(credited, CharacterMainControl.Main),

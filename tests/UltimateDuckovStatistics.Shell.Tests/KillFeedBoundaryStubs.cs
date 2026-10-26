@@ -3,6 +3,7 @@ namespace UltimateDuckovStatistics.UI
 {
     internal sealed class KillFeedIcons : IDisposable
     {
+        internal UnityEngine.Sprite Explosion { get; } = new();
         internal UnityEngine.Sprite Headshot { get; } = new();
         internal static Dictionary<string, UnityEngine.Sprite> Weapons { get; } = new();
         internal UnityEngine.Sprite? Weapon(string id) => Weapons.GetValueOrDefault(id);

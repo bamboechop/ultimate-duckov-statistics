@@ -11,6 +11,29 @@ namespace UltimateDuckovStatistics.Tests;
 #pragma warning disable CA1861
 public sealed class RetainedCombatTests
 {
+    [Fact]
+    public void HistoricalCombatGapShowsCapturedOverviewTotalsAndLocalizedNotice()
+    {
+        var profile = new ProfileDocument { GenerationId = "g" };
+        profile.Statistics.SaveGenerationId = "g";
+        var aggregate = profile.Statistics.RunTotals.CombatStatistics;
+        aggregate.Capabilities = Core.Compatibility.CombatNativeContractPolicy.CreateUnavailableCapabilities("Health.Hurt historical gap");
+        aggregate.Totals.DamageCaused = aggregate.Totals.DamageDealt = 2510;
+        aggregate.Totals.DamageReceived = 407;
+        aggregate.Totals.KillsByYou = 128;
+        aggregate.Totals.PlayerKills.Ranged = 128;
+        profile.Capabilities = Core.Compatibility.CombatNativeContractPolicy.ToRecords(
+            Core.Compatibility.CombatNativeContractPolicy.CreateSupportedCapabilities(), "current").ToList();
+        var projection = StatisticsPanelProjectionFactory.Create(profile, new(), new(), new());
+        var overview = ProfileSummaryPresentationFactory.Create(projection, UiText.Get);
+        Assert.Contains("128", overview[(int)ProfileSummaryMetric.KillsByYou].Value, StringComparison.Ordinal);
+        Assert.Contains("Partial", overview[(int)ProfileSummaryMetric.KillsByYou].Value, StringComparison.Ordinal);
+        Assert.Contains("2,510", overview[(int)ProfileSummaryMetric.DamageDealt].Value, StringComparison.Ordinal);
+        var presentation = CombatPresentationFactory.Create(projection, "g", key => "localized:" + key)!;
+        Assert.DoesNotContain("Health.Hurt", presentation.EnemyNotice, StringComparison.Ordinal);
+        Assert.Contains("localized:ui.combat_coverage_partial", presentation.EnemyNotice, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]

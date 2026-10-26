@@ -76,6 +76,7 @@ public sealed class CombatStatisticsNormalizationResult
 
 public static class CombatStatisticsReducer
 {
+    private static readonly string[] ProvenanceSeparators = { " | " };
     internal static void ValidateChangedBreakdown(CombatBreakdownAggregate row)
     {
         ValidateTotals(row.Totals, CombatRelationshipScope.Breakdown);
@@ -476,9 +477,14 @@ public static class CombatStatisticsReducer
         return new MetricAvailability
         {
             State = (AdapterCapabilityState)Math.Max((int)a.State, (int)b.State),
-            Provenance = string.Join(" | ", new[] { a.Provenance, b.Provenance }.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal))
+            Provenance = CompactProvenance(a.Provenance, b.Provenance)
         };
     }
+
+    private static string CompactProvenance(params string[] values) => string.Join(" | ", values
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .SelectMany(value => value.Split(ProvenanceSeparators, StringSplitOptions.RemoveEmptyEntries))
+        .Select(value => value.Trim()).Where(value => value.Length > 0).Distinct(StringComparer.Ordinal));
 
     private static MetricAvailability Clone(MetricAvailability? value) => value == null
         ? null!
@@ -599,6 +605,12 @@ public static class CombatStatisticsReducer
                 availability.State = AdapterCapabilityState.DisabledIncompatible;
                 availability.Provenance = "Invalid persisted capability state was repaired.";
                 result.Changed = result.Repaired = true;
+            }
+            var compact = CompactProvenance(availability.Provenance);
+            if (!string.Equals(compact, availability.Provenance, StringComparison.Ordinal))
+            {
+                availability.Provenance = compact;
+                result.Changed = true;
             }
         }
     }

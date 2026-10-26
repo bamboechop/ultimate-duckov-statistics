@@ -50,7 +50,7 @@ internal sealed class NativeFirstPersonHeadshotCompatibility
 
     public bool Capture(Health health, DamageInfo damageInfo, bool nativeHeadTargeted)
     {
-        if (!IsSupported) return false;
+        if (!IsSupported || damageInfo.isExplosion) return false;
         if (firstPersonMode == null) return nativeHeadTargeted;
         try
         {

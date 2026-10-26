@@ -20,6 +20,9 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
     private readonly MethodInfo getPatchInfoMethod;
     private readonly IDictionary patchState;
     private volatile bool disposed;
+    private HarmonyForeignPatchPolicy foreignPatchPolicy;
+    internal Action<string>? ObservationDiagnostic { get; set; }
+    private readonly Dictionary<MethodBase, string> foreignNotices = new();
 
     private ReflectiveHarmonyPatcher(
         string harmonyId,
@@ -61,7 +64,8 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
     public static bool TryCreate(out ReflectiveHarmonyPatcher? patcher, out string detail)
         => TryCreate(HarmonyId, out patcher, out detail);
 
-    public static bool TryCreate(string harmonyId, out ReflectiveHarmonyPatcher? patcher, out string detail)
+    public static bool TryCreate(string harmonyId, out ReflectiveHarmonyPatcher? patcher, out string detail,
+        HarmonyForeignPatchPolicy foreignPatchPolicy = HarmonyForeignPatchPolicy.RequireVerified)
     {
         patcher = null;
         if (string.IsNullOrWhiteSpace(harmonyId))
@@ -175,6 +179,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
                 getPatchInfoMethod,
                 patchState,
                 version);
+            patcher.foreignPatchPolicy = foreignPatchPolicy;
             detail = $"HarmonyLib {version} loaded.";
             return true;
         }
@@ -202,12 +207,24 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
             try
             {
                 var patchInfo = getPatchInfoMethod.Invoke(null, new object[] { original });
-                return HarmonyPatchSetInspector.TryValidate(
+                var valid = HarmonyPatchSetInspector.TryValidate(
                     patchInfo,
                     harmonyId,
                     expectedOwnedPatches,
                     out detail,
-                    (collection, patch) => KnownModCompatibility.AllowsPatch(original, collection, patch));
+                    (collection, patch) => KnownModCompatibility.AllowsPatch(original, collection, patch), foreignPatchPolicy);
+                if (valid && foreignPatchPolicy == HarmonyForeignPatchPolicy.Observe
+                    && detail.Contains("alongside foreign", StringComparison.Ordinal))
+                {
+                    if (!foreignNotices.TryGetValue(original, out var previous) || previous != detail)
+                    {
+                        foreignNotices[original] = detail;
+                        try { ObservationDiagnostic?.Invoke(original.DeclaringType?.Name + "." + original.Name + ": " + detail); }
+                        catch { /* Diagnostic delivery must not stop recording. */ }
+                    }
+                }
+                else if (valid) foreignNotices.Remove(original);
+                return valid;
             }
             catch (Exception exception)
             {
@@ -284,6 +301,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
             return false;
         }
 
+        candidate.Expectations = expectedOwnedPatches.ToArray();
         stamp = candidate;
         detail = "Harmony patch set validated and its shared-state stamp captured.";
         return true;
@@ -320,6 +338,13 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
                 }
             }
 
+            if (foreignPatchPolicy == HarmonyForeignPatchPolicy.Observe && stamp.Expectations != null)
+            {
+                if (!TryCaptureValidatedPatchSetStamp(stamp.Original, stamp.Expectations, out var refreshed, out detail)
+                    || refreshed == null) return false;
+                stamp.Token = refreshed.Token;
+                return true;
+            }
             detail = "Harmony patch state changed after UDS validated the installed patch set.";
             return false;
         }
@@ -471,5 +496,6 @@ internal sealed class HarmonyPatchSetStamp
 
     internal ReflectiveHarmonyPatcher Owner { get; }
     internal MethodBase Original { get; }
-    internal object Token { get; }
+    internal object Token { get; set; }
+    internal IReadOnlyList<HarmonyPatchExpectation>? Expectations { get; set; }
 }

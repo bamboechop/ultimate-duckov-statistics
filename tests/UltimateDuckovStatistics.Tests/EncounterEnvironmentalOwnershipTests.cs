@@ -60,7 +60,7 @@ public sealed partial class NativeCombatDegradationTests
         var sink = new CombatSink();
         using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
         var zone = CaptureGrenadeZone();
-        AddForeignPatchAndInspect(NativeMethod(type, method));
+        RemoveOwnedCallbackAndInspect(NativeMethod(type, method));
         EncounterZoneHit(zone, new Health { CurrentHealth = 10, Character = player,
             IsMainCharacterHealth = true, team = Teams.player });
         // The unrelated projectile family still records normally.
@@ -82,7 +82,7 @@ public sealed partial class NativeCombatDegradationTests
     {
         var sink = new CombatSink();
         using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
-        if (hookLost) AddForeignPatchAndInspect(NativeMethod(typeof(ZoneDamage), "Damage"));
+        if (hookLost) RemoveOwnedCallbackAndInspect(NativeMethod(typeof(ZoneDamage), "Damage"));
         object?[] outer = [LaunchEncounterProjectile(), null];
         CombatHarmonyCallbacks.ProjectileUpdatePrefixMethod.Invoke(null, outer);
         try

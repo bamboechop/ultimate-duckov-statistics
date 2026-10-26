@@ -14,6 +14,7 @@ internal sealed class NativeBuffApplicationAdapter : IDisposable
     private readonly RetryableHarmonyPatcherLease lease = new();
     private HarmonyPatchSetStamp? stamp;
     private bool active;
+    private bool suspended;
     private bool disposed;
     private bool retry;
     private DateTime nextAttempt;
@@ -30,7 +31,8 @@ internal sealed class NativeBuffApplicationAdapter : IDisposable
         if (active) return IsTrusted();
         boundary.MarkUntrusted();
         if (!lease.TryCleanup(out _)) { retry = true; nextAttempt = DateTime.UtcNow.AddSeconds(1); return false; }
-        if (!ReflectiveHarmonyPatcher.TryCreate(Owner, out var patcher, out var detail) || patcher == null)
+        if (!ReflectiveHarmonyPatcher.TryCreate(Owner, out var patcher, out var detail,
+                HarmonyForeignPatchPolicy.Observe) || patcher == null)
         {
             retry = !ReflectiveHarmonyPatcher.IsHarmonyLoaded || ReflectiveHarmonyPatcher.HasPendingCleanup;
             nextAttempt = DateTime.UtcNow.AddSeconds(1);
@@ -38,6 +40,7 @@ internal sealed class NativeBuffApplicationAdapter : IDisposable
             return false;
         }
         lease.Attach(patcher);
+        patcher.ObservationDiagnostic = Report;
         try
         {
             if (current != null && !ReferenceEquals(current, this)) throw new InvalidOperationException("Shared buff observer already attached.");
@@ -51,6 +54,7 @@ internal sealed class NativeBuffApplicationAdapter : IDisposable
                 new[] { new HarmonyPatchExpectation("Prefixes", BuffPrefixMethod), new HarmonyPatchExpectation("Postfixes", BuffPostfixMethod) },
                 out stamp, out detail)) throw new InvalidOperationException(detail);
             active = true;
+            suspended = false;
             retry = false;
             boundary.SetTrustValidator(IsTrusted);
             boundary.MarkTrusted();
@@ -78,8 +82,23 @@ internal sealed class NativeBuffApplicationAdapter : IDisposable
     private bool IsTrusted()
     {
         if (!active || disposed) return false;
-        if (lease.Value?.IsPatchSetStampCurrent(stamp, out _) == true) return true;
-        Invalidate("The shared buff patch set changed after validation.");
+        var detail = "The shared buff patcher is unavailable.";
+        if (lease.Value?.IsPatchSetStampCurrent(stamp, out detail) == true)
+        {
+            if (suspended)
+            {
+                suspended = false;
+                boundary.MarkTrusted();
+                Report("Shared buff observation resumed after required callbacks were restored.");
+            }
+            return true;
+        }
+        if (!suspended)
+        {
+            suspended = true;
+            boundary.MarkUntrusted();
+            Report("Shared buff observation suspended: " + detail);
+        }
         return false;
     }
 

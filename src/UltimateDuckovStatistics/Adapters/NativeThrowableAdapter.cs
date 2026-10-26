@@ -19,6 +19,7 @@ internal sealed class NativeThrowableAdapter : IRetryableCleanup
     private readonly Action<string> diagnostic;
     private readonly RetryableHarmonyPatcherLease lease = new();
     private bool active;
+    private HarmonyPatchSetStamp? releaseStamp, grenadeStamp;
     private static NativeThrowableAdapter? owner;
     [ThreadStatic] private static ReleaseScope? current;
     private static readonly MethodInfo Release = typeof(SkillBase).GetMethod(nameof(SkillBase.ReleaseSkill), new[] { typeof(SkillReleaseContext), typeof(CharacterMainControl) })!;
@@ -42,12 +43,16 @@ internal sealed class NativeThrowableAdapter : IRetryableCleanup
         {
             if (Application.version != "2.3.30" || Release == null || GrenadeRelease == null)
                 throw new InvalidOperationException("Throwable release contract does not match the verified baseline.");
-            if (!ReflectiveHarmonyPatcher.TryCreate("at.bamboechop.ultimate-duckov-statistics.throwables", out var patcher, out var detail))
+            if (!ReflectiveHarmonyPatcher.TryCreate("at.bamboechop.ultimate-duckov-statistics.throwables", out var patcher, out var detail,
+                    HarmonyForeignPatchPolicy.Observe))
                 throw new InvalidOperationException(detail);
             lease.Attach(patcher!);
+            patcher!.ObservationDiagnostic = diagnostic;
             patcher!.Patch(Release, prefix: Callback(nameof(BeginRelease)), finalizer: Callback(nameof(EndRelease)));
             patcher.Patch(GrenadeRelease, postfix: Callback(nameof(Released)));
-            if (!Trusted()) throw new InvalidOperationException("Throwable release patches are not trusted.");
+            if (!patcher.TryCaptureValidatedPatchSetStamp(Release, ReleasePatches, out releaseStamp, out detail)
+                || !patcher.TryCaptureValidatedPatchSetStamp(GrenadeRelease, GrenadePatches, out grenadeStamp, out detail))
+                throw new InvalidOperationException(detail);
             owner = this; active = true;
             SetCapability(AdapterCapabilityState.Supported, "Successful main-player Skill_Grenade releases in raids; recorded totals begin with this adapter. Earlier throws are unavailable.");
         }
@@ -58,8 +63,8 @@ internal sealed class NativeThrowableAdapter : IRetryableCleanup
     }
 
     private bool Trusted() => lease.Value != null
-        && lease.Value.IsPatchSetTrusted(Release, ReleasePatches, out _)
-        && lease.Value.IsPatchSetTrusted(GrenadeRelease, GrenadePatches, out _);
+        && lease.Value.IsPatchSetStampCurrent(releaseStamp, out _)
+        && lease.Value.IsPatchSetStampCurrent(grenadeStamp, out _);
     private void SetCapability(AdapterCapabilityState state, string detail)
     { capability(new CapabilityRecord { AdapterId = ThrowableUseObservation.CapabilityId, State = state, Version = Version, Detail = detail }); diagnostic(detail); }
     private void Fail(Exception ex)

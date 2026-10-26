@@ -23,7 +23,7 @@ public sealed partial class NativeCombatDegradationTests
         EncounterHit(LaunchEncounterProjectile(), sink);
         var inFlight = LaunchEncounterProjectile();
 
-        AddForeignPatchAndInspect(NativeMethod(typeof(Projectile), method));
+        RemoveOwnedCallbackAndInspect(NativeMethod(typeof(Projectile), method));
         // Exercise a tap before observer.Tick: coverage and trust must already
         // apply, including to a projectile cached before patch drift.
         EncounterHit(inFlight, sink);
@@ -70,7 +70,7 @@ public sealed partial class NativeCombatDegradationTests
         var sink = new CombatSink();
         using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
         EncounterMelee(sink);
-        AddForeignPatchAndInspect(NativeMethod(typeof(ItemAgent_MeleeWeapon), "CheckCollidersInRange"));
+        RemoveOwnedCallbackAndInspect(NativeMethod(typeof(ItemAgent_MeleeWeapon), "CheckCollidersInRange"));
         EncounterMelee(sink);
         LevelManager.Instance!.InputManager.AimingEnemyHead = true;
         var projectile = LaunchEncounterProjectile();
@@ -104,7 +104,7 @@ public sealed partial class NativeCombatDegradationTests
     [InlineData(typeof(ItemAgent_MeleeWeapon), "CheckCollidersInRange", false)]
     public void EncounterCoverageIsReportedAgainForEachRunAfterSharedHookFailure(Type type, string method, bool healthLost)
     {
-        AddForeignPatchAndInspect(NativeMethod(type, method));
+        RemoveOwnedCallbackAndInspect(NativeMethod(type, method));
         var sink = new CombatSink();
         using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
         observer.Tick(sink.Context);
@@ -126,7 +126,7 @@ public sealed partial class NativeCombatDegradationTests
     {
         var sink = new CombatSink();
         using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
-        AddForeignPatchAndInspect(NativeMethod(typeof(Effect), "SetItem"));
+        RemoveOwnedCallbackAndInspect(NativeMethod(typeof(Effect), "SetItem"));
         LevelManager.Instance!.InputManager.AimingEnemyHead = true;
         EncounterHit(LaunchEncounterProjectile(), sink);
         EncounterMelee(sink);
@@ -146,7 +146,7 @@ public sealed partial class NativeCombatDegradationTests
         var sink = new CombatSink();
         using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
         var projectile = LaunchEncounterProjectile();
-        AddForeignPatchAndInspect(NativeMethod(typeof(Projectile), method));
+        RemoveOwnedCallbackAndInspect(NativeMethod(typeof(Projectile), method));
         object?[] outer = [new ItemAgent_MeleeWeapon { Holder = player, Item = new() { TypeID = 99 } }, true, null];
         CombatHarmonyCallbacks.MeleePrefixMethod.Invoke(null, outer);
         try

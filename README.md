@@ -2,7 +2,7 @@
 
 Ultimate Duckov Statistics (UDS) records proven single-player gameplay events in local per-save profiles. It never writes Duckov save files and has no telemetry or online account.
 
-[GitHub v1.5.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.5.0) is released, adding a configurable player kill feed beneath the storm information and improved spacing on extraction/death results screens. The feed shows weapon silhouettes, verified outgoing headshots and known fatal distances, with English/German settings for placement, size and duration. See [release notes](RELEASE_NOTES.md) and [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for the versioned package and checksum. The first Steam Workshop listing and subscription-install verification remain pending; the [release procedure](docs/RELEASE_PROCESS.md) covers those separate steps.
+**Version 1.6.0** focuses on recording modded personal playthroughs by default, modded personal records, First Person Camera compatibility, explosive-barrel attribution and measured crafting costs. Existing captured values remain visible when older history is incomplete. See [release notes](RELEASE_NOTES.md), the [recording policy](docs/RECORD_BY_DEFAULT.md), and [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for published downloads. Workshop publication and subscription-install verification remain separate steps in the [release procedure](docs/RELEASE_PROCESS.md).
 
 ## Install and use
 
@@ -35,7 +35,7 @@ Since 1.4.0, UDS includes a consistent [results-screen summary](docs/EXTRACTION_
 
 The [game-day HUD](docs/GAME_DAY_HUD.md) shows `Day N` / `Tag N` beneath the weather using the loaded game clock. It follows the native HUD through scene fades and does not depend on when UDS was installed or its statistics were reset. Disable Show Game Days to avoid a duplicate label.
 
-New in 1.5.0, the optional [player kill feed](docs/PLAYER_KILL_FEED.md) shows confirmed player kills and deaths below the storm information, with weapon icons, known fatal distances and verified outgoing headshots. Configure it in **Diagnostics → Data & settings → Kill feed**. It defaults to six entries lasting ten seconds. Names use blue for the player and yellow for the other actor; distance sits beneath the weapon. Only player kills/deaths appear, and missing position evidence omits the distance. Entries clear when travelling between maps. Disable CS Like Kill Feed to avoid duplicate feeds; UDS does not change other mods' settings.
+The optional [player kill feed](docs/PLAYER_KILL_FEED.md) shows confirmed player kills and deaths below the storm information, with weapon icons, known fatal distances and verified outgoing headshots. Configure it in **Diagnostics → Data & settings → Kill feed**. It defaults to six entries lasting ten seconds. Names use blue for the player and yellow for the other actor; distance sits beneath the weapon. Barrel kills use a distinct explosion icon and do not inherit gun headshots. Only player kills/deaths appear, and missing position evidence omits the distance. Entries clear when travelling between maps. Disable CS Like Kill Feed to avoid duplicate feeds; UDS does not change other mods' settings.
 
 ## Local data and current format
 

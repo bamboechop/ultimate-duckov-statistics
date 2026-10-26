@@ -11,6 +11,24 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class CombatStatisticsTests
 {
+    [Fact]
+    public void RepeatedCapabilityPublicationDeduplicatesIndividualReasonsAndCompactsPersistedHistory()
+    {
+        var aggregate = new CombatStatisticsAggregate();
+        CombatStatisticsReducer.RestrictCapabilities(aggregate,
+            CombatNativeContractPolicy.CreateUnavailableCapabilities("historical gap"));
+        for (var i = 0; i < 20; i++)
+            CombatStatisticsReducer.RestrictCapabilities(aggregate, CombatNativeContractPolicy.CreateSupportedCapabilities());
+        var reason = aggregate.Capabilities.DamageDealt.Provenance;
+        Assert.Equal(2, reason.Split(" | ").Length);
+        aggregate.Capabilities.DamageDealt.Provenance = reason + " | " + reason;
+        var normalized = CombatStatisticsReducer.NormalizePersisted(aggregate);
+        Assert.True(normalized.Changed);
+        Assert.False(normalized.Repaired);
+        Assert.Equal(reason, aggregate.Capabilities.DamageDealt.Provenance);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.DamageDealt.State);
+    }
+
     private static readonly DateTime Now = new(2026, 8, 11, 12, 0, 0, DateTimeKind.Utc);
 
     [Fact]
@@ -209,9 +227,9 @@ public sealed class CombatStatisticsTests
         Assert.Equal(CombatOwnership.Unknown, ownership);
         var capabilities = CombatNativeContractPolicy.CreateCapabilities(
             AllHooks() with { BuffApplication = boundary.IsTrusted });
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.KillsByYou.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.ObservedWorldDeaths.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.DamageOverTime.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, capabilities.KillsByYou.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.ObservedWorldDeaths.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, capabilities.DamageOverTime.State);
     }
 
     [Theory]
@@ -292,11 +310,11 @@ public sealed class CombatStatisticsTests
         Assert.Equal(0, aggregate.Totals.KillsByYou);
         Assert.Equal(1, aggregate.Totals.ObservedWorldDeaths);
         Assert.Empty(equipment.CombatAssociations);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.DamageDealt.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.Ownership.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.WeaponIdentity.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.KillsByYou.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.ObservedWorldDeaths.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, aggregate.Capabilities.DamageDealt.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, aggregate.Capabilities.Ownership.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, aggregate.Capabilities.WeaponIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, aggregate.Capabilities.KillsByYou.State);
+        Assert.Equal(AdapterCapabilityState.Supported, aggregate.Capabilities.ObservedWorldDeaths.State);
     }
 
     [Fact]
@@ -621,11 +639,11 @@ public sealed class CombatStatisticsTests
     {
         var withoutEffect = CombatNativeContractPolicy.CreateCapabilities(AllHooks() with { EffectTrigger = false });
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.DamageOverTime.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.DamageDealt.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.Ownership.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.WeaponIdentity.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.KillsByYou.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.ObservedWorldDeaths.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, withoutEffect.DamageDealt.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, withoutEffect.Ownership.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, withoutEffect.WeaponIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, withoutEffect.KillsByYou.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.ObservedWorldDeaths.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.DamageReceived.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.Accuracy.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.MeleeHits.State);
@@ -651,12 +669,12 @@ public sealed class CombatStatisticsTests
 
         var withoutBuffApplication = CombatNativeContractPolicy.CreateCapabilities(
             AllHooks() with { BuffApplication = false });
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.DamageDealt.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.Ownership.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.WeaponIdentity.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.DamageOverTime.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.KillsByYou.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.ObservedWorldDeaths.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, withoutBuffApplication.DamageDealt.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, withoutBuffApplication.Ownership.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, withoutBuffApplication.WeaponIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, withoutBuffApplication.DamageOverTime.State);
+        Assert.Equal(AdapterCapabilityState.Experimental, withoutBuffApplication.KillsByYou.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutBuffApplication.ObservedWorldDeaths.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutBuffApplication.DamageReceived.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutBuffApplication.RangedHits.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutBuffApplication.Accuracy.State);

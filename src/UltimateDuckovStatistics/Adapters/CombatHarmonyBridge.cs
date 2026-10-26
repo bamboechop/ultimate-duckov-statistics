@@ -76,6 +76,9 @@ internal static class CombatHarmonyBridge
     public static void CaptureEffectApplication(Effect effect) =>
         adapter?.CaptureEffectApplication(effect);
 
+    public static CombatNativeScope? PushBarrel(Breakable barrel, DamageInfo damage) =>
+        barrel.createExplosion && adapter != null ? Push(adapter.CreateBarrelScope(damage)) : null;
+
     public static CombatHealthPatchState BeginHealth(Health health, DamageInfo damageInfo)
     {
         var current = adapter;
@@ -88,6 +91,15 @@ internal static class CombatHarmonyBridge
         {
             NativeHotPathDiagnostics.CountHealthPrefix();
             var scope = CurrentScope;
+            if (damageInfo.isExplosion && scope?.IsRanged == true
+                && (damageInfo.fromWeaponItemID <= 0 || damageInfo.fromWeaponItemID != scope.WeaponTypeId))
+                scope = new CombatNativeScope
+                {
+                    PhysicalSource = damageInfo.fromCharacter, CreditedSource = damageInfo.fromCharacter,
+                    WeaponTypeId = damageInfo.fromWeaponItemID,
+                    EquipmentAssociation = scope.EquipmentAssociation,
+                    ExplicitActorlessWorldDamage = damageInfo.fromCharacter == null
+                };
             return new CombatHealthPatchState(
                 health.CurrentHealth,
                 health.IsDead,
@@ -153,6 +165,7 @@ internal sealed class CombatNativeScope
     public bool NativePlayerOwnerChain { get; set; }
     public bool ExplicitActorlessWorldDamage { get; set; }
     public bool ConflictingActorEvidence { get; set; }
+    public bool IsBarrelExplosion { get; set; }
     public bool IsRanged { get; set; }
     public bool IsMelee { get; set; }
     public bool IsDamageOverTime { get; set; }
@@ -198,10 +211,52 @@ internal sealed class CombatHealthPatchState
     public EquipmentEventAssociation EquipmentAssociation { get; }
     public bool ShouldMeasure { get; }
     public bool HeadTargeted { get; }
+
+    internal CombatHealthPatchState AtCompletion(DamageInfo finalDamage, bool originalRan,
+        out bool sourceChanged, out bool actorUncertain)
+    {
+        actorUncertain = !originalRan || !ReferenceEquals(DamageInfo.fromCharacter, finalDamage.fromCharacter)
+            || DamageInfo.isFromBuffOrEffect != finalDamage.isFromBuffOrEffect;
+        sourceChanged = actorUncertain || DamageInfo.fromWeaponItemID != finalDamage.fromWeaponItemID
+            || DamageInfo.isExplosion != finalDamage.isExplosion;
+        var scope = Scope;
+        if (sourceChanged)
+        {
+            // A later patch changed source identity. Keep measured HP loss, but
+            // do not reuse the enclosing gun/ammo/headshot/projectile evidence.
+            scope = new CombatNativeScope
+            {
+                PhysicalSource = actorUncertain ? null : finalDamage.fromCharacter,
+                CreditedSource = actorUncertain ? null : finalDamage.fromCharacter,
+                ConflictingActorEvidence = actorUncertain,
+                EquipmentAssociation = actorUncertain ? new() : EquipmentAssociation
+            };
+            finalDamage.fromWeaponItemID = -1;
+        }
+        return new(HealthBefore, WasDead, finalDamage, scope,
+            actorUncertain ? new() : EquipmentAssociation, ShouldMeasure,
+            HeadTargeted && !sourceChanged && DamageInfo.crit == finalDamage.crit);
+    }
 }
 
 internal static class CombatHarmonyCallbacks
 {
+    private static void BarrelPrefix(Breakable __instance, DamageInfo dmgInfo, out CombatNativeScope? __state)
+    {
+        __state = CombatHarmonyBridge.PushBarrel(__instance, dmgInfo);
+        NativeEncounterCombatObserver.ObserveBarrelBegin(__state);
+    }
+
+    private static Exception? BarrelFinalizer(Exception? __exception, CombatNativeScope? __state)
+    {
+        CombatHarmonyBridge.Pop(__state);
+        NativeEncounterCombatObserver.ObserveAttackFinally(__exception);
+        return __exception;
+    }
+
+    internal static MethodInfo BarrelPrefixMethod => typeof(CombatHarmonyCallbacks).GetMethod(nameof(BarrelPrefix), BindingFlags.NonPublic | BindingFlags.Static)!;
+    internal static MethodInfo BarrelFinalizerMethod => typeof(CombatHarmonyCallbacks).GetMethod(nameof(BarrelFinalizer), BindingFlags.NonPublic | BindingFlags.Static)!;
+
     private static void HealthPrefix(Health __instance, DamageInfo damageInfo, out CombatHealthPatchState __state)
     {
         NativeEncounterCombatObserver.ObserveHealthBegin(__instance, damageInfo);
@@ -212,6 +267,16 @@ internal static class CombatHarmonyCallbacks
     {
         CombatHarmonyBridge.CompleteHealth(__instance, __state);
         NativeEncounterCombatObserver.ObserveHealthComplete(__instance);
+    }
+
+    private static void ObservedHealthPostfix(Health __instance, DamageInfo damageInfo,
+        CombatHealthPatchState? __state, bool __runOriginal)
+    {
+        if (__state?.ShouldMeasure != true) return;
+        var state = __state.AtCompletion(damageInfo, __runOriginal, out var sourceChanged, out var actorUncertain);
+        NativeEncounterCombatObserver.ObserveHealthSourceAtCompletion(__instance, damageInfo,
+            sourceChanged, actorUncertain, state.HeadTargeted);
+        HealthPostfix(__instance, state);
     }
 
     private static Exception? HealthFinalizer(Health __instance, Exception? __exception)
@@ -303,6 +368,7 @@ internal static class CombatHarmonyCallbacks
 
     public static MethodInfo HealthPrefixMethod => Get(nameof(HealthPrefix));
     public static MethodInfo HealthPostfixMethod => Get(nameof(HealthPostfix));
+    public static MethodInfo ObservedHealthPostfixMethod => Get(nameof(ObservedHealthPostfix));
     public static MethodInfo HealthFinalizerMethod => Get(nameof(HealthFinalizer));
     public static MethodInfo ProjectileInitPostfixMethod => Get(nameof(ProjectileInitPostfix));
     public static MethodInfo ProjectileUpdatePrefixMethod => Get(nameof(ProjectileUpdatePrefix));

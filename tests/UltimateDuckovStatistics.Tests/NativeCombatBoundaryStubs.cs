@@ -69,6 +69,7 @@ public sealed class ItemAgent_MeleeWeapon
     public Item? Item { get; set; }
     private int CheckCollidersInRange(bool dealDamage) => 0;
 }
+public sealed class Breakable { public bool createExplosion; private void OnDead(DamageInfo dmgInfo) { } }
 public sealed class ZoneDamage { private void Damage() { } }
 public sealed partial class Grenade
 {

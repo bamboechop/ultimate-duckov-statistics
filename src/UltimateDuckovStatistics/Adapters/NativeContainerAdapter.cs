@@ -73,9 +73,11 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
         try
         {
             ResolveContracts(out var characterDeath, out var createFromItem);
-            if (!ReflectiveHarmonyPatcher.TryCreate(HarmonyId, out var patcher, out var harmonyDetail) || patcher == null)
+            if (!ReflectiveHarmonyPatcher.TryCreate(HarmonyId, out var patcher, out var harmonyDetail,
+                    HarmonyForeignPatchPolicy.Observe) || patcher == null)
                 return Disable($"Container corpse provenance is unavailable: {harmonyDetail}");
             patcherLease.Attach(patcher);
+            patcher.ObservationDiagnostic = diagnosticHandler;
             registrations =
             [
                 new PatchRegistration(characterDeath,

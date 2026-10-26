@@ -650,7 +650,7 @@ The first Goal is complete only when:
 - Statistics remain per save; no combined all-save dashboard.
 - All data stays local. No telemetry, accounts, or external service.
 - Custom difficulty, cheats, and other mods are tracked and tagged rather than rejected.
-- Flagged runs are excluded from records by default but can be included through filters.
+- Modded playthroughs contribute to personal records while retaining their mod tags. Interrupted runs, unknown integrity, and cheat/custom-difficulty runs remain excluded from duration records.
 - Third-party items and enemies are stored generically through stable IDs and fallback names.
 - Unsupported or ambiguous metrics appear as unavailable/experimental, never as fabricated zeroes.
 - Main-duck stats exclude pets and companions unless explicitly shown in separate categories.

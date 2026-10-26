@@ -949,7 +949,7 @@ public sealed partial class RunLifecycleTracker
                 : endedUtc;
         }
         var recordEligible = outcome != RunOutcome.Interrupted
-                             && state.Context.IntegrityTags == IntegrityTags.Normal
+                             && RunIntegrityPolicy.AllowsRecords(state.Context.IntegrityTags)
                              && state.Context.LifecycleCapability == AdapterCapabilityState.Supported;
         var summary = new RunSummary
         {

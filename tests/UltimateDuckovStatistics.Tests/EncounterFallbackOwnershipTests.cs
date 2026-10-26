@@ -19,10 +19,10 @@ public sealed partial class NativeCombatDegradationTests
     public void EncounterFallbackAfterEffectHookLossKeepsHealthEvidenceWithoutClaimingOwnership(
         bool incoming, bool nativeEffectFlag, bool lostBeforeObserver)
     {
-        if (lostBeforeObserver) AddForeignPatchAndInspect(NativeMethod(typeof(Effect), "Trigger"));
+        if (lostBeforeObserver) RemoveOwnedCallbackAndInspect(NativeMethod(typeof(Effect), "Trigger"));
         var sink = new CombatSink();
         using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
-        if (!lostBeforeObserver) AddForeignPatchAndInspect(NativeMethod(typeof(Effect), "Trigger"));
+        if (!lostBeforeObserver) RemoveOwnedCallbackAndInspect(NativeMethod(typeof(Effect), "Trigger"));
         var npc = new CharacterMainControl { characterPreset = new() { nameKey = "Scavenger" } };
         var health = new Health { CurrentHealth = 10, Character = incoming ? player : npc,
             IsMainCharacterHealth = incoming, team = incoming ? Teams.player : Teams.enemy };
@@ -83,7 +83,7 @@ public sealed partial class NativeCombatDegradationTests
     {
         var sink = new CombatSink();
         using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
-        AddForeignPatchAndInspect(NativeMethod(typeof(Effect), "Trigger"));
+        RemoveOwnedCallbackAndInspect(NativeMethod(typeof(Effect), "Trigger"));
         EncounterHit(LaunchEncounterProjectile(), sink);
         EncounterMelee(sink);
         var records = sink.Flush();

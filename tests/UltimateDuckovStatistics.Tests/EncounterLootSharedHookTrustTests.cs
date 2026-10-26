@@ -33,7 +33,7 @@ public sealed class EncounterLootSharedHookTrustTests : IDisposable
     [InlineData(typeof(InteractableLootbox), "CreateFromItem")]
     public void PreexistingSharedPatchReportsMissingLootCoverageInEachRun(Type type, string method)
     {
-        AddForeignPatch(type, method);
+        AddForeignPatch(type, method, NativeContainerAdapter.HarmonyId);
         adapter.Initialize();
         Assert.False(ContainerHarmonyBridge.EncounterCorpseHooksTrusted);
         using var observer = new NativeEncounterLootObserver(sink, diagnostics.Add);
@@ -60,7 +60,7 @@ public sealed class EncounterLootSharedHookTrustTests : IDisposable
         using var observer = new NativeEncounterLootObserver(sink, diagnostics.Add);
         var verified = CreateCorpse();
         Assert.Single(sink.Rows, row => row.Kind == "loot.corpse-join");
-        AddForeignPatchAndInspect(type, method);
+        RemoveOwnedCallbackAndInspect(type, method);
         // The owner's callbacks remain installed after runtime detachment. Invoke
         // them before the observer's next Tick to test the real retained tap path.
         var rejected = CreateCorpse();
@@ -95,7 +95,7 @@ public sealed class EncounterLootSharedHookTrustTests : IDisposable
         var actor = new CharacterMainControl { CharacterItem = new() };
         object?[] death = [actor, null];
         ContainerHarmonyCallbacks.CharacterDeathPrefixMethod.Invoke(null, death);
-        AddForeignPatchAndInspect(type, method);
+        RemoveOwnedCallbackAndInspect(type, method);
         try
         {
             var box = new InteractableLootbox(); box.SetInventory(new());
@@ -114,6 +114,29 @@ public sealed class EncounterLootSharedHookTrustTests : IDisposable
         using var observer = new NativeEncounterLootObserver(sink, diagnostics.Add);
         var corpse = CreateCorpse(); Open(corpse.Box); Take(corpse.Item);
         observer.Tick(sink.Context);
+        Assert.Null(observer.FailureIssue);
+        var records = sink.Flush();
+        Assert.Equal(9, Assert.Single(records, row => row.Loot != null).Loot!.TakenToPlayer);
+        Assert.DoesNotContain(records, row => row.Coverage != null);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ForeignContainerAndLootPatchesKeepProvenTransfersWithoutCoverageWarnings(bool duringCapture)
+    {
+        if (!duringCapture) AddForeignPatch(typeof(CharacterMainControl), "OnDead");
+        InitializeTrusted();
+        using var observer = new NativeEncounterLootObserver(sink, diagnostics.Add);
+        if (duringCapture)
+        {
+            AddForeignPatch(typeof(CharacterMainControl), "OnDead");
+            AddForeignPatch(typeof(Item), "Detach");
+            adapter.Tick();
+        }
+        var corpse = CreateCorpse(); Open(corpse.Box); Take(corpse.Item);
+        observer.Tick(sink.Context);
+        Assert.True(ContainerHarmonyBridge.EncounterCorpseHooksTrusted);
         Assert.Null(observer.FailureIssue);
         var records = sink.Flush();
         Assert.Equal(9, Assert.Single(records, row => row.Loot != null).Loot!.TakenToPlayer);
@@ -173,15 +196,20 @@ public sealed class EncounterLootSharedHookTrustTests : IDisposable
     }
 
     private static MethodInfo LootCallback(string name) => typeof(NativeEncounterLootObserver).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!;
-    private static void AddForeignPatch(Type type, string name)
+    private static void AddForeignPatch(Type type, string name, string owner = "foreign.loot-test")
     {
         var method = type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)!;
-        new HarmonyLib.Harmony("foreign.loot-test").Patch(method,
+        new HarmonyLib.Harmony(owner).Patch(method,
             new HarmonyLib.HarmonyMethod(typeof(EncounterLootSharedHookTrustTests).GetMethod(nameof(ForeignPrefix), BindingFlags.NonPublic | BindingFlags.Static)!), null, null, null);
     }
-    private void AddForeignPatchAndInspect(Type type, string name)
+    private void RemoveOwnedCallbackAndInspect(Type type, string name)
     {
         AddForeignPatch(type, name);
+        var target = type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)!;
+        var patches = HarmonyLib.Harmony.GetPatchInfo(target)!;
+        foreach (var collection in new[] { patches.Prefixes, patches.Postfixes, patches.Finalizers })
+            collection.RemoveAll(patch => patch.owner == NativeContainerAdapter.HarmonyId);
+        HarmonyLib.HarmonySharedState.Update(target);
         var inspect = typeof(NativeContainerAdapter).GetMethod("InspectNextPatchStamp", BindingFlags.NonPublic | BindingFlags.Instance)!;
         for (var i = 0; i < 3; i++) inspect.Invoke(adapter, [DateTime.UtcNow.AddSeconds(5 + i)]);
         Assert.False(ContainerHarmonyBridge.EncounterCorpseHooksTrusted);

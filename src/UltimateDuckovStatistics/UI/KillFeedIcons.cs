@@ -1,4 +1,5 @@
 using ItemStatsSystem;
+using UltimateDuckovStatistics.Core.Domain;
 using UnityEngine;
 
 namespace UltimateDuckovStatistics.UI;
@@ -9,6 +10,8 @@ internal sealed class KillFeedIcons : IDisposable
     private readonly Dictionary<int, Sprite?> weapons = new();
     private readonly List<Sprite> owned = new();
     private Sprite? headshot;
+    private Sprite? explosion;
+    internal Sprite Explosion => explosion != null ? explosion : explosion = CreateExplosion();
     internal Sprite Headshot => headshot != null ? headshot : headshot = CreateHeadshot();
 
     internal Sprite? Weapon(string id)
@@ -53,6 +56,16 @@ internal sealed class KillFeedIcons : IDisposable
         return result;
     }
 
+    private Sprite CreateExplosion()
+    {
+        var texture = new Texture2D(64, 64, TextureFormat.RGBA32, false);
+        texture.SetPixels32(KillFeedIconGeometry.ExplosionPixels());
+        texture.Apply(false, true);
+        var sprite = Sprite.Create(texture, new Rect(0, 0, 64, 64), new Vector2(.5f, .5f), 100, 0, SpriteMeshType.FullRect);
+        owned.Add(sprite);
+        return sprite;
+    }
+
     private Sprite CreateHeadshot()
     {
         // Independent head-and-crosshair pictogram, not an asset from another mod.
@@ -71,7 +84,7 @@ internal sealed class KillFeedIcons : IDisposable
             }
         var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
         texture.SetPixels32(pixels); texture.Apply(false, true);
-        var sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(.5f, .5f));
+        var sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(.5f, .5f), 100, 0, SpriteMeshType.FullRect);
         owned.Add(sprite);
         return sprite;
     }
@@ -83,6 +96,6 @@ internal sealed class KillFeedIcons : IDisposable
             if (sprite == null) continue;
             UnityEngine.Object.Destroy(sprite.texture); UnityEngine.Object.Destroy(sprite);
         }
-        owned.Clear(); weapons.Clear(); headshot = null;
+        owned.Clear(); weapons.Clear(); headshot = null; explosion = null;
     }
 }

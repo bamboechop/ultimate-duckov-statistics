@@ -386,7 +386,7 @@ internal static class CombatPresentationFactory
     {
         var unavailable = caps.Where(c => c.State != AdapterCapabilityState.Supported).ToArray();
         if (partial || unavailable.Length > 0) return Join(t("ui.unavailable") + " (" + t("ui.combat_partial") + ")",
-            string.Join("\n", unavailable.Select(c => c.Provenance).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.Ordinal)));
+            t("ui.combat_coverage_partial"));
         return count == 0 ? t(empty) : "";
     }
     internal static string Name(string name, string id, Func<string, string> t) => !string.IsNullOrWhiteSpace(name) ? name

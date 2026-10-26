@@ -28,31 +28,98 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Application.persistentDataPath = originalPersistentDataPath;
     }
 
+    [Theory]
+    [InlineData("empty", false)]
+    [InlineData("wrong-item", false)]
+    [InlineData("merged", true)]
+    public void DeliveryBufferRequiresExpectedOutputAndAllowsLaterCrafts(string delivery, bool counted)
+    {
+        using var result = CreateInitializedComposition();
+        ItemUtilities.OwnedItems.Add(Stack(9631, 10, 1));
+        var formula = OrdinaryPaidFormula("delivery", 8631, 9631);
+        CompleteCraft(result.Coordinator, formula, counted, deliveredItems: delivery == "empty"
+            ? new List<Item>()
+            : new List<Item> { new Item { TypeID = delivery == "wrong-item" ? 9999 : 8631, Stackable = true, StackCount = 0 } });
+        Assert.Equal(counted ? 150 : 0, result.Coordinator.Current!.Statistics.Crafting.CurrencyCharged);
+        Assert.Equal(counted ? 2 : 0, result.Coordinator.Current.Statistics.Crafting.Resources.Values.Sum(row => row.ConsumedQuantity));
+        CompleteCraft(result.Coordinator, formula, true);
+        Assert.Equal(counted ? 2 : 1, result.Coordinator.Current.Statistics.Crafting.CompletionActions);
+    }
+
+    [Theory]
+    [InlineData("discount", 50, 1, false)]
+    [InlineData("free", 0, 0, false)]
+    [InlineData("different-items", 60, 3, false)]
+    [InlineData("cash", 150, 2, false)]
+    [InlineData("nested", 0, 0, true)]
+    [InlineData("failed", 0, 0, true)]
+    [InlineData("unreadable", 0, 0, true)]
+    [InlineData("missing", 0, 0, true)]
+    public void ModifiedPaymentRecordsMeasuredCostsOrKeepsDeliveredOutputWithUnknownCosts(
+        string scenario, long currency, long quantity, bool unknown)
+    {
+        using var result = CreateInitializedComposition();
+        var input = Stack(9631, 10, 1); var other = Stack(9632, 5, 1);
+        var cash = Stack(EconomyManager.CashItemID, 200, 1);
+        ItemUtilities.OwnedItems.AddRange([input, other, cash]);
+        if (scenario == "cash") EconomyManager.Money = 40;
+        if (scenario == "unreadable") ItemUtilities.ScanException = new IOException("Unavailable before payment");
+        CompleteCraft(result.Coordinator, OrdinaryPaidFormula("modified-pay", 8631, 9631), true,
+            invokePaymentCallbacks: scenario != "missing", paymentOverride: cost =>
+            {
+                ItemUtilities.ScanException = null;
+                if (scenario == "free") return true;
+                if (scenario == "cash") { EconomyManager.Money = 0; cash.StackCount -= 110; input.StackCount -= 2; return true; }
+                if (scenario == "nested") Assert.Null(CraftingHarmonyBridge.BeginPayment(cost));
+                EconomyManager.Money -= scenario == "discount" ? 50 : scenario == "different-items" ? 60 : 150;
+                if (scenario == "different-items") other.StackCount -= 3;
+                else input.StackCount -= scenario == "discount" ? 1 : 2;
+                return scenario != "failed";
+            });
+        var crafting = result.Coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(1, crafting.CompletionActions);
+        Assert.Equal(1, crafting.ProducedQuantity);
+        Assert.Equal(currency, crafting.CurrencyCharged);
+        Assert.Equal(quantity, crafting.Resources.Values.Sum(row => row.ConsumedQuantity));
+        Assert.Equal(unknown, crafting.ResourceHistoryUnavailable);
+        Assert.Equal(unknown, crafting.CurrencyHistoryUnavailable);
+        Assert.Equal(AdapterCapabilityState.Supported, result.Adapter.MetricCapabilities.CompletionActions.State);
+        if (scenario == "different-items") Assert.Equal(3, crafting.Resources["9632"].ConsumedQuantity);
+        if (scenario == "unreadable")
+        {
+            CompleteCraft(result.Coordinator, OrdinaryPaidFormula("recovered-pay", 8631, 9631), true,
+                paymentOverride: _ => { EconomyManager.Money -= 10; input.StackCount--; return true; });
+            Assert.Equal(10, crafting.CurrencyCharged);
+            Assert.Equal(1, crafting.Resources["9631"].ConsumedQuantity);
+            Assert.True(crafting.ResourceHistoryUnavailable);
+        }
+        var observedCurrency = crafting.CurrencyCharged;
+        var observedResources = crafting.Resources.Values.Sum(row => row.ConsumedQuantity);
+        result.StopRuntime();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
+        reopened.Initialize();
+        var export = StatisticsExporter.Create(reopened.Current!, DateTime.UtcNow);
+        Assert.Equal(observedCurrency, export.Document.Crafting.CurrencyCharged);
+        Assert.Equal(observedResources, export.Document.Crafting.Resources.Values.Sum(row => row.ConsumedQuantity));
+        Assert.Equal(unknown, export.Document.Crafting.ResourceHistoryUnavailable);
+    }
+
     [Fact]
     [Trait("Category", "M16")]
     [Trait("Category", "ProductionComposition")]
     public void InsufficientCombinedStockDuplicateCostDoesNotPublishCanonicalDeclaredQuantity()
     {
         using var result = CompleteDuplicateCostCraft(4);
-
         var crafting = result.Coordinator.Current!.Statistics.Crafting;
         Assert.Equal(1, crafting.CompletionActions);
         Assert.Equal(1, crafting.ProducedQuantity);
-        Assert.Empty(crafting.Resources);
-        Assert.True(crafting.ResourceHistoryUnavailable);
-        Assert.Equal(1, crafting.CurrencyChargeActions);
+        Assert.Equal(4, crafting.Resources["9001"].ConsumedQuantity);
+        Assert.False(crafting.ResourceHistoryUnavailable);
         Assert.Equal(150, crafting.CurrencyCharged);
-        Assert.Equal(
-            AdapterCapabilityState.DisabledIncompatible,
-            result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
         var export = StatisticsExporter.Create(result.Coordinator.Current, DateTime.UtcNow);
-        using (var json = JsonDocument.Parse(export.Json))
-            Assert.False(json.RootElement.GetProperty("Crafting").GetProperty("Resources").TryGetProperty("9001", out _));
-        Assert.Equal(1, ItemUtilities.PlayerItemOperationCount);
-        Assert.Equal(2, ItemUtilities.ScanCount);
-        Assert.Contains(result.Diagnostics, detail =>
-            detail.Contains("entries totaling 6", StringComparison.Ordinal)
-            && detail.Contains("proved only 4", StringComparison.Ordinal));
+        Assert.Equal(4, export.Document.Crafting.Resources["9001"].ConsumedQuantity);
+        Assert.Equal(4, ItemUtilities.ScanCount);
     }
 
     [Fact]
@@ -80,7 +147,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(6, ReadResourceQuantity(CurrentProfilePath(result)));
         Assert.Empty(ItemUtilities.OwnedItems);
         Assert.Equal(1, ItemUtilities.PlayerItemOperationCount);
-        Assert.Equal(2, ItemUtilities.ScanCount);
+        Assert.Equal(4, ItemUtilities.ScanCount);
     }
 
     [Fact]
@@ -89,26 +156,16 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
     public void DistinctFullStacksRepeatedCostDoesNotPublishDoubleCountedDestruction()
     {
         using var result = CompleteDuplicateCostCraft(3, 3);
-
         var crafting = result.Coordinator.Current!.Statistics.Crafting;
         Assert.Equal(1, crafting.CompletionActions);
         Assert.Equal(1, crafting.ProducedQuantity);
-        Assert.Empty(crafting.Resources);
-        Assert.True(crafting.ResourceHistoryUnavailable);
-        Assert.Equal(1, crafting.CurrencyChargeActions);
+        Assert.Equal(3, crafting.Resources["9001"].ConsumedQuantity);
+        Assert.False(crafting.ResourceHistoryUnavailable);
         Assert.Equal(150, crafting.CurrencyCharged);
-        Assert.Equal(
-            AdapterCapabilityState.DisabledIncompatible,
-            result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
-        Assert.Single(ItemUtilities.OwnedItems);
-        Assert.Equal(3, ItemUtilities.OwnedItems[0].StackCount);
-        Assert.Equal(2, ItemUtilities.ScanCount);
+        Assert.Equal(AdapterCapabilityState.Supported, result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
         var export = StatisticsExporter.Create(result.Coordinator.Current, DateTime.UtcNow);
-        using (var json = JsonDocument.Parse(export.Json))
-            Assert.False(json.RootElement.GetProperty("Crafting").GetProperty("Resources").TryGetProperty("9001", out _));
-        Assert.Contains(result.Diagnostics, detail =>
-            detail.Contains("entries totaling 6", StringComparison.Ordinal)
-            && detail.Contains("proved 3 actually removed", StringComparison.Ordinal));
+        Assert.Equal(3, export.Document.Crafting.Resources["9001"].ConsumedQuantity);
+        Assert.Equal(4, ItemUtilities.ScanCount);
     }
 
     [Fact]
@@ -117,25 +174,16 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
     public void DetachedSameIdChildTransferDoesNotCompleteRepeatedCostProof()
     {
         using var result = CompleteDuplicateCostCraftWithDetachedSameIdChild();
-
         var crafting = result.Coordinator.Current!.Statistics.Crafting;
         Assert.Equal(1, crafting.CompletionActions);
         Assert.Equal(1, crafting.ProducedQuantity);
-        Assert.Empty(crafting.Resources);
-        Assert.True(crafting.ResourceHistoryUnavailable);
-        Assert.Equal(1, crafting.CurrencyChargeActions);
+        Assert.Equal(3, crafting.Resources["9001"].ConsumedQuantity);
+        Assert.False(crafting.ResourceHistoryUnavailable);
         Assert.Equal(150, crafting.CurrencyCharged);
-        Assert.Equal(
-            AdapterCapabilityState.DisabledIncompatible,
-            result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
-        Assert.Equal([3, 6], ItemUtilities.OwnedItems.Select(item => item.StackCount).OrderBy(count => count).ToArray());
-        Assert.Equal(2, ItemUtilities.ScanCount);
+        Assert.Equal(AdapterCapabilityState.Supported, result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
         var export = StatisticsExporter.Create(result.Coordinator.Current, DateTime.UtcNow);
-        using (var json = JsonDocument.Parse(export.Json))
-            Assert.False(json.RootElement.GetProperty("Crafting").GetProperty("Resources").TryGetProperty("9001", out _));
-        Assert.Contains(result.Diagnostics, detail =>
-            detail.Contains("entries totaling 6", StringComparison.Ordinal)
-            && detail.Contains("net ownership-ending stack mutations proved 3 actually removed", StringComparison.Ordinal));
+        Assert.Equal(3, export.Document.Crafting.Resources["9001"].ConsumedQuantity);
+        Assert.Equal(4, ItemUtilities.ScanCount);
     }
 
     [Fact]
@@ -240,7 +288,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             result.Coordinator,
             DuplicateCostFormula(),
             expectCompletionIncrease: true,
-            flushCoordinator: false);
+            flushCoordinator: false, invokePaymentCallbacks: false);
 
         var crafting = result.Coordinator.Current!.Statistics.Crafting;
         Assert.Equal(1, crafting.CompletionActions);
@@ -249,7 +297,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             AdapterCapabilityState.DisabledIncompatible,
             crafting.Capabilities.ItemResourceIdentity.State);
         Assert.Equal(
-            AdapterCapabilityState.DisabledIncompatible,
+            AdapterCapabilityState.Experimental,
             result.Adapter.MetricCapabilities.ItemResourceIdentity.State);
         Assert.Equal(
             AdapterCapabilityState.Supported,
@@ -261,7 +309,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(1, ReadCompletionActions(profilePath));
         Assert.True(ReadCraftingBoolean(profilePath, "ResourceHistoryUnavailable"));
         Assert.Equal(
-            AdapterCapabilityState.DisabledIncompatible,
+            AdapterCapabilityState.Experimental,
             result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
     }
 
@@ -284,7 +332,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             result.Coordinator,
             DuplicateCostFormula(),
             expectCompletionIncrease: true,
-            flushCoordinator: false);
+            flushCoordinator: false, invokePaymentCallbacks: false);
         CompleteCraft(
             result.Coordinator,
             new CraftingFormula
@@ -310,7 +358,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(2, ReadCompletionActions(profilePath));
         Assert.True(ReadCraftingBoolean(profilePath, "ResourceHistoryUnavailable"));
         Assert.Equal(
-            AdapterCapabilityState.DisabledIncompatible,
+            AdapterCapabilityState.Experimental,
             result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
     }
 
@@ -319,19 +367,16 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
     [Trait("Category", "ProductionComposition")]
     public void ColdResourceOnlyHarmonyConflictPreservesCompletionOutputRecipeAndCurrency()
     {
-        using var result = CreateInitializedComposition(() => PatchForeignResourceTarget(
-            typeof(Item).GetProperty(nameof(Item.StackCount))!.SetMethod!));
-
+        using var result = CreateInitializedComposition(() => PatchForeignResourceTarget(typeof(Item).GetProperty(nameof(Item.StackCount))!.SetMethod!));
         AssertIndependentCraftingCapabilitiesSupported(result);
-        AssertResourceCapabilitiesUnavailable(result);
-
         ItemUtilities.OwnedItems.Add(Stack(9301, 2, durability: 1));
-        CompleteCraft(result, OrdinaryPaidFormula("cold-resource-conflict", 8301, 9301));
-
-        AssertOrdinaryCraftRecordedWithoutResourceEvidence(result, "cold-resource-conflict", 8301, 9301);
-        Assert.Contains(result.Diagnostics, detail =>
-            detail.Contains("Item.StackCount setter", StringComparison.Ordinal)
-            && detail.Contains("item-resource", StringComparison.OrdinalIgnoreCase));
+        CompleteCraft(result, OrdinaryPaidFormula("coexisting-9301", 8301, 9301));
+        var crafting = result.Coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(1, crafting.CompletionActions);
+        Assert.Equal(2, crafting.Resources["9301"].ConsumedQuantity);
+        Assert.Equal(150, crafting.CurrencyCharged);
+        Assert.False(crafting.ResourceHistoryUnavailable);
+        Assert.False(crafting.CurrencyHistoryUnavailable);
     }
 
     [Fact]
@@ -341,19 +386,16 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
     {
         using var result = CreateInitializedComposition();
         PatchForeignResourceTarget(typeof(Item).GetMethod(nameof(Item.MarkDestroyed))!);
-
         result.Adapter.Tick(DateTime.UtcNow.AddSeconds(3));
-
         AssertIndependentCraftingCapabilitiesSupported(result);
-        AssertResourceCapabilitiesUnavailable(result);
-
         ItemUtilities.OwnedItems.Add(Stack(9302, 2, durability: 1));
-        CompleteCraft(result, OrdinaryPaidFormula("runtime-resource-drift", 8302, 9302));
-
-        AssertOrdinaryCraftRecordedWithoutResourceEvidence(result, "runtime-resource-drift", 8302, 9302);
-        Assert.Contains(result.Diagnostics, detail =>
-            detail.Contains("Item.MarkDestroyed", StringComparison.Ordinal)
-            && detail.Contains("item-resource", StringComparison.OrdinalIgnoreCase));
+        CompleteCraft(result, OrdinaryPaidFormula("coexisting-9302", 8302, 9302));
+        var crafting = result.Coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(1, crafting.CompletionActions);
+        Assert.Equal(2, crafting.Resources["9302"].ConsumedQuantity);
+        Assert.Equal(150, crafting.CurrencyCharged);
+        Assert.False(crafting.ResourceHistoryUnavailable);
+        Assert.False(crafting.CurrencyHistoryUnavailable);
     }
 
     [Fact]
@@ -361,29 +403,16 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
     [Trait("Category", "ProductionComposition")]
     public void ColdPaymentHarmonyConflictPreservesM13OutputAndDisablesOnlyCostDimensions()
     {
-        var payMethod = typeof(EconomyManager).GetMethod(
-            nameof(EconomyManager.Pay),
-            [typeof(Cost), typeof(bool), typeof(bool)])!;
-        using var result = CreateInitializedComposition(() => PatchForeignPaymentTarget(payMethod));
-
-        AssertM13CraftingCapabilitiesSupported(result);
-        AssertCostCapabilitiesUnavailable(result);
-        var payPatches = Assert.IsType<HarmonyLib.Patches>(HarmonyLib.Harmony.GetPatchInfo(payMethod));
-        Assert.DoesNotContain(
-            payPatches.Prefixes.Concat(payPatches.Postfixes).Concat(payPatches.Finalizers),
-            patch => patch.owner == NativeCraftingAdapter.HarmonyId);
-
+        using var result = CreateInitializedComposition(() => PatchForeignPaymentTarget(typeof(EconomyManager).GetMethod(nameof(EconomyManager.Pay), [typeof(Cost), typeof(bool), typeof(bool)])!));
+        AssertIndependentCraftingCapabilitiesSupported(result);
         ItemUtilities.OwnedItems.Add(Stack(9303, 2, durability: 1));
-        CompleteCraft(
-            result.Coordinator,
-            OrdinaryPaidFormula("cold-payment-conflict", 8303, 9303),
-            expectCompletionIncrease: true,
-            invokePaymentCallbacks: false);
-
-        AssertOrdinaryCraftRecordedWithoutCostEvidence(result, "cold-payment-conflict", 8303, 9303);
-        Assert.Contains(result.Diagnostics, detail =>
-            detail.Contains("EconomyManager.Pay", StringComparison.Ordinal)
-            && detail.Contains("Completion, output, recipe, and batch", StringComparison.Ordinal));
+        CompleteCraft(result, OrdinaryPaidFormula("coexisting-9303", 8303, 9303));
+        var crafting = result.Coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(1, crafting.CompletionActions);
+        Assert.Equal(2, crafting.Resources["9303"].ConsumedQuantity);
+        Assert.Equal(150, crafting.CurrencyCharged);
+        Assert.False(crafting.ResourceHistoryUnavailable);
+        Assert.False(crafting.CurrencyHistoryUnavailable);
     }
 
     [Fact]
@@ -392,23 +421,17 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
     public void RuntimePaymentHarmonyDriftPreservesM13OutputAndDisablesOnlyCostDimensions()
     {
         using var result = CreateInitializedComposition();
-        var payMethod = typeof(EconomyManager).GetMethod(
-            nameof(EconomyManager.Pay),
-            [typeof(Cost), typeof(bool), typeof(bool)])!;
-        PatchForeignPaymentTarget(payMethod);
-
+        PatchForeignPaymentTarget(typeof(EconomyManager).GetMethod(nameof(EconomyManager.Pay), [typeof(Cost), typeof(bool), typeof(bool)])!);
         result.Adapter.Tick(DateTime.UtcNow.AddSeconds(3));
-
-        AssertM13CraftingCapabilitiesSupported(result);
-        AssertCostCapabilitiesUnavailable(result);
-
+        AssertIndependentCraftingCapabilitiesSupported(result);
         ItemUtilities.OwnedItems.Add(Stack(9304, 2, durability: 1));
-        CompleteCraft(result, OrdinaryPaidFormula("runtime-payment-drift", 8304, 9304));
-
-        AssertOrdinaryCraftRecordedWithoutCostEvidence(result, "runtime-payment-drift", 8304, 9304);
-        Assert.Contains(result.Diagnostics, detail =>
-            detail.Contains("EconomyManager.Pay", StringComparison.Ordinal)
-            && detail.Contains("runtime patch drift", StringComparison.Ordinal));
+        CompleteCraft(result, OrdinaryPaidFormula("coexisting-9304", 8304, 9304));
+        var crafting = result.Coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(1, crafting.CompletionActions);
+        Assert.Equal(2, crafting.Resources["9304"].ConsumedQuantity);
+        Assert.Equal(150, crafting.CurrencyCharged);
+        Assert.False(crafting.ResourceHistoryUnavailable);
+        Assert.False(crafting.CurrencyHistoryUnavailable);
     }
 
     [Fact]
@@ -866,7 +889,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(
             AdapterCapabilityState.Supported,
             result.Coordinator.CurrentCraftingCapabilities.OutputResourceAssociation.State);
-        Assert.Equal(1, ItemUtilities.ScanCount);
+        Assert.Equal(5, ItemUtilities.ScanCount);
     }
 
     [Fact]
@@ -1310,7 +1333,9 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         CraftingFormula formula,
         bool expectCompletionIncrease,
         bool flushCoordinator = true,
-        bool invokePaymentCallbacks = true)
+        bool invokePaymentCallbacks = true,
+        Func<Cost, bool>? paymentOverride = null,
+        List<Item>? deliveredItems = null)
     {
         var actionsBeforeDelivery = coordinator.Current!.Statistics.Crafting.CompletionActions;
         var craftPrefixArguments = new object?[] { formula, null };
@@ -1324,8 +1349,8 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             CraftingHarmonyCallbacks.PayPrefixMethod.Invoke(null, payPrefixArguments);
             paymentScope = payPrefixArguments[1] as CraftingNativeScope;
         }
-        var paymentSucceeded = ExecuteFaithfulNativePayment(formula.cost);
-        Assert.True(paymentSucceeded);
+        var paymentSucceeded = paymentOverride?.Invoke(formula.cost) ?? ExecuteFaithfulNativePayment(formula.cost);
+        if (paymentOverride == null) Assert.True(paymentSucceeded);
         if (invokePaymentCallbacks)
         {
             CraftingHarmonyCallbacks.PayPostfixMethod.Invoke(null, [paymentScope, paymentSucceeded]);
@@ -1333,12 +1358,16 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         }
 
         var deliveryCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var generatedItems = deliveredItems ?? new List<Item>
+        {
+            new Item { TypeID = formula.result.id, Stackable = true, StackCount = formula.result.amount }
+        };
         var deliveryArguments = new object?[]
         {
             false,
             true,
             1,
-            new List<Item>(),
+            generatedItems,
             new UniTask(deliveryCompletion.Task)
         };
         CraftingHarmonyCallbacks.ReturnPostfixMethod.Invoke(null, deliveryArguments);
@@ -1478,6 +1507,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             }
 
             foreach (var removal in removals) removal();
+            EconomyManager.Money -= cost.money;
             foreach (var item in detachedItems) SendDetachedItemToPlayer(item);
             ItemUtilities.RaisePlayerItemOperation();
             return true;
@@ -1493,7 +1523,6 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         foreach (var entry in cost.items ?? Array.Empty<Cost.ItemEntry>())
         {
             var count = ItemUtilities.GetItemCount(entry.id);
-            CraftingHarmonyCallbacks.GetItemCountPostfixMethod.Invoke(null, [entry.id, count]);
             if (count < entry.amount) return false;
         }
         return true;
@@ -1517,7 +1546,6 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             {
                 remaining -= item.StackCount;
                 ItemUtilities.OwnedItems.Remove(item);
-                CraftingHarmonyCallbacks.MarkDestroyedPrefixMethod.Invoke(null, [item]);
                 item.MarkDestroyed();
             }
             else
@@ -1549,10 +1577,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     private static void SetStackCount(Item item, int value)
     {
-        var prefixArguments = new object?[] { item, null };
-        CraftingHarmonyCallbacks.StackCountPrefixMethod.Invoke(null, prefixArguments);
         item.StackCount = value;
-        CraftingHarmonyCallbacks.StackCountPostfixMethod.Invoke(null, [item, prefixArguments[1]]);
     }
 
     private static Item Stack(int itemTypeId, int stackCount, float durability) => new()
@@ -1583,23 +1608,8 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         NativeCraftingAdapter adapter,
         NativeProfileCoordinator coordinator)
     {
-        var capabilities = CraftingNativeContractPolicy.Supported(
-            "delivery",
-            "formula",
-            "event resources plus repeated-entry Pay proof",
-            "event currency");
-        coordinator.SetCraftingCapabilities(
-            CraftingNativeContractPolicy.ToRecords(capabilities, NativeCraftingAdapter.AdapterVersion),
-            capabilities);
-        typeof(NativeCraftingAdapter).GetField("capabilities", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(adapter, CraftingStatisticsReducer.CloneCapabilities(capabilities));
-        typeof(NativeCraftingAdapter).GetField("accepting", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(adapter, true);
-        typeof(NativeCraftingAdapter).GetField("paymentHookActive", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(adapter, true);
-        typeof(NativeCraftingAdapter).GetField("resourceProofHooksActive", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(adapter, true);
-        CraftingHarmonyBridge.Attach(adapter);
+        adapter.Initialize();
+        Assert.Equal(AdapterCapabilityState.Supported, coordinator.CurrentCraftingCapabilities.CompletionActions.State);
     }
 
     private static void WriteNativeSave(string root)
@@ -1665,6 +1675,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Application.version = "2.3.30";
         ItemUtilities.ResetNativeState();
         EconomyManager.ResetNativeState();
+        EconomyManager.Money = 1000000;
         Saves.SavesSystem.ResetNativeState();
     }
 

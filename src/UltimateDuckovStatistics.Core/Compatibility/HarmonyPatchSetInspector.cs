@@ -3,6 +3,12 @@ using System.Reflection;
 
 namespace UltimateDuckovStatistics.Core.Compatibility;
 
+public enum HarmonyForeignPatchPolicy
+{
+    RequireVerified,
+    Observe
+}
+
 public sealed class HarmonyPatchExpectation
 {
     public HarmonyPatchExpectation(string collectionName, MethodInfo patchMethod)
@@ -36,7 +42,8 @@ public static class HarmonyPatchSetInspector
         string expectedOwner,
         IReadOnlyList<HarmonyPatchExpectation> expectedOwnedPatches,
         out string detail,
-        Func<string, object, bool>? compatibleForeignPatch = null)
+        Func<string, object, bool>? compatibleForeignPatch = null,
+        HarmonyForeignPatchPolicy foreignPatchPolicy = HarmonyForeignPatchPolicy.RequireVerified)
     {
         if (string.IsNullOrWhiteSpace(expectedOwner))
         {
@@ -61,6 +68,7 @@ public static class HarmonyPatchSetInspector
         }
 
         var matched = new bool[expectedOwnedPatches.Count];
+        var observations = new HashSet<string>(StringComparer.Ordinal);
         var acceptedForeign = new HashSet<(string Collection, string Owner, MethodInfo Method)>();
         foreach (var collectionName in PatchCollectionNames)
         {
@@ -80,6 +88,13 @@ public static class HarmonyPatchSetInspector
                 var owner = ReflectionContractReader.ReadInstanceMember(patch, "owner") as string;
                 if (!string.Equals(owner, expectedOwner, StringComparison.Ordinal))
                 {
+                    if (foreignPatchPolicy == HarmonyForeignPatchPolicy.Observe)
+                    {
+                        // Foreign presence is context, not evidence that our observer
+                        // is broken. Its semantics are checked at the event boundary.
+                        observations.Add(collectionName + ":" + (owner ?? "unknown"));
+                        continue;
+                    }
                     if (owner != null
                         && ReflectionContractReader.ReadInstanceMember(patch, "PatchMethod") is MethodInfo foreignMethod
                         && compatibleForeignPatch?.Invoke(collectionName, patch) == true)
@@ -130,7 +145,10 @@ public static class HarmonyPatchSetInspector
             }
         }
 
-        detail = acceptedForeign.Count == 0
+        detail = observations.Count > 0
+            ? "Required UDS callbacks are present; recording alongside foreign patches (not a semantic compatibility claim): "
+                + string.Join(", ", observations.OrderBy(value => value, StringComparer.Ordinal).Take(16)) + "."
+            : acceptedForeign.Count == 0
             ? "Harmony patch set contains exactly the required UDS callbacks and no foreign patches."
             : $"Harmony patch set contains the required UDS callbacks and {acceptedForeign.Count} verified compatible callbacks.";
         return true;
