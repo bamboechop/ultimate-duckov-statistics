@@ -11,7 +11,7 @@ Version 1.6.0 focuses on recording modded personal playthroughs and clearer comb
 
 Requires Duckov 2.3.30 on Windows and separately installed HarmonyLib. Profile/export schema 1 and the `v1` data directory are unchanged. Existing current-format statistics and settings are preserved. This release does not automatically reconstruct missing history, requalify older excluded records, or apply the separately requested slot-specific repairs performed during development.
 
-The candidate package is `UltimateDuckovStatistics-v1.6.0.zip` plus its `.sha256` sidecar. It contains the same 13 installable files and excludes diagnostic instrumentation and game/Harmony binaries. See [installation](INSTALL.md), [recording policy](docs/RECORD_BY_DEFAULT.md), and [validation evidence](TESTING.md). Native combat, extraction, container access and item-cost crafting have been exercised; positive-currency crafting, healing and throwables still need later gameplay verification. GitHub release publication and Workshop upload/subscription verification remain separate steps.
+The candidate package is `UltimateDuckovStatistics-v1.6.0.zip` plus its `.sha256` sidecar. It contains the same 13 installable files and excludes diagnostic instrumentation and game/Harmony binaries. See [installation](INSTALL.md), [recording policy](docs/RECORD_BY_DEFAULT.md), and [validation evidence](TESTING.md). Native combat, extraction, container access, item-cost crafting and bandage healing have been exercised. Paid crafting could not be exercised because no paid recipe is available in the current playthrough; throwables remain unverified. GitHub release publication and Workshop upload/subscription verification remain separate steps.
 
 # Ultimate Duckov Statistics 1.5.0
 
