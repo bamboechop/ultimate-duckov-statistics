@@ -126,6 +126,32 @@ public sealed class EncounterRunPresentationTests
         Assert.Equal(expected, parts[parts.Count - 1].Text);
     }
 
+    [Theory]
+    [InlineData("unscoped-explosion")]
+    [InlineData("environmental")]
+    [InlineData("unscoped")]
+    public void IncomingDamageWithoutAmmunitionOmitsTheAmmunitionPart(string mechanism)
+    {
+        var damage = new EncounterDamage { Incoming = true, Amount = 45, Hits = 1,
+            Source = new EncounterSource { Mechanism = mechanism, WeaponTypeId = 123 } };
+        var parts = EncounterDamageText.Parts(damage, id => id == 123 ? "Grenade" : "Unavailable", Text);
+        Assert.Equal("Grenade · in 1 hit", string.Join(" · ", parts.Select(part => part.Text)));
+        Assert.Equal(2, parts.Count);
+        Assert.Equal(123, parts[0].Icon);
+        Assert.Null(parts[1].Icon);
+    }
+    [Theory]
+    [InlineData("projectile")]
+    [InlineData("unscoped")]
+    public void CapturedAmmunitionKeepsItsNameAndIcon(string mechanism)
+    {
+        var damage = new EncounterDamage { Incoming = true, Hits = 1,
+            Source = new EncounterSource { Mechanism = mechanism, WeaponTypeId = 123, AmmunitionTypeId = 456 } };
+        var parts = EncounterDamageText.Parts(damage, id => id == 123 ? "Weapon" : "Bullet", Text);
+        Assert.Equal("Weapon · Bullet · in 1 hit", string.Join(" · ", parts.Select(part => part.Text)));
+        Assert.Equal(456, parts[1].Icon);
+    }
+
     private static string Text(string key) => key switch
     {
         "ui.encounters_effect_damage" => "Effect damage", "ui.encounters_melee_damage" => "Melee damage",
