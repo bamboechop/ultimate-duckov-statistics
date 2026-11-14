@@ -18,7 +18,8 @@ internal static class EncounterDamageText
             return parts;
         }
         if (mechanism == "melee") parts.Add((text("ui.encounters_melee_damage"), null));
-        else parts.Add((itemName(damage.Source.AmmunitionTypeId), damage.Source.AmmunitionTypeId));
+        else if (mechanism == "projectile" || damage.Source.AmmunitionTypeId.HasValue)
+            parts.Add((itemName(damage.Source.AmmunitionTypeId), damage.Source.AmmunitionTypeId));
         var hits = string.Format(CultureInfo.CurrentCulture, text(damage.Hits == 1 ? "ui.encounters_hit_one" : "ui.encounters_hit_count"), damage.Hits);
         // Native classification covers the player's outgoing projectiles only. Incoming
         // zero is an unpopulated counter, not evidence that the enemy missed the head.
