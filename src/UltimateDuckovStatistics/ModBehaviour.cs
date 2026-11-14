@@ -16,6 +16,11 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 {
     private const string LogPrefix = "[UDS]";
     private bool initialized;
+    private StartupCapabilityWarningPolicy startupWarningPolicy = new();
+    private float startupActivatedAt;
+    private NativeStartupCapabilityWarning? startupWarning;
+    private IReadOnlyList<string>? startupDisabledCapabilities;
+    private float nextStartupWarningAttempt;
     private NativeProfileCoordinator? profileCoordinator;
     private NativeHealingAttributionAdapter? healingAttributionAdapter;
     private NativeBuffApplicationAdapter? buffApplicationAdapter;
@@ -355,6 +360,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 #endif
             profileCoordinator.SetEncounterBoundaryBarrier(encounterCapture.Flush);
             initialized = true;
+            startupWarningPolicy = new();
+            startupActivatedAt = Time.realtimeSinceStartup;
+            startupDisabledCapabilities = null;
+            nextStartupWarningAttempt = startupActivatedAt + 2;
             Debug.Log(
                 $"{LogPrefix} activated utc={DateTime.UtcNow:O} " +
                 $"instance={GetInstanceID()} packageVersion={info.version} coreVersion={Core.ProductInfo.Version} " +
@@ -366,11 +375,20 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             Debug.LogError($"{LogPrefix} activation failed; item tracking is disabled.");
             Cleanup();
         }
+        finally
+        {
+            if (!initialized)
+            {
+                startupDisabledCapabilities = new[] { UiText.Get("ui.startup_initialization_failed") };
+                nextStartupWarningAttempt = Time.realtimeSinceStartup + 2;
+            }
+        }
     }
 
     protected override void OnBeforeDeactivate()
     {
         if (!initialized
+            && startupWarning == null && startupDisabledCapabilities == null
             && runLifecycleAdapter.OwnedValue == null
             && weaponFireAdapter.OwnedValue == null
             && combatAttributionAdapter.OwnedValue == null
@@ -469,10 +487,25 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         statisticsPanel?.Tick();
         gameDayHud?.Tick();
         killFeedHud?.Tick();
+        if (initialized && profileCoordinator?.Current != null)
+        {
+            var disabled = startupWarningPolicy.Check(profileCoordinator.Current.Capabilities,
+                Time.realtimeSinceStartup - startupActivatedAt);
+            if (disabled.Count > 0) startupDisabledCapabilities = disabled;
+        }
+        if (startupDisabledCapabilities != null && Time.realtimeSinceStartup >= nextStartupWarningAttempt)
+        {
+            nextStartupWarningAttempt = Time.realtimeSinceStartup + 1;
+            if (NativeStartupCapabilityWarning.TryCreate(startupDisabledCapabilities, out startupWarning))
+                startupDisabledCapabilities = null;
+        }
     }
 
     private void OnApplicationQuit()
     {
+        startupWarning?.Dispose();
+        startupWarning = null;
+        startupDisabledCapabilities = null;
         // Release retained views while their native canvas still exists.
         gameDayHud?.Dispose();
         gameDayHud = null;
@@ -508,6 +541,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Cleanup()
     {
+        startupWarning?.Dispose();
+        startupWarning = null;
+        startupDisabledCapabilities = null;
         encounterCapture?.Dispose();
         encounterCapture = null;
         extractionSummary?.Dispose();

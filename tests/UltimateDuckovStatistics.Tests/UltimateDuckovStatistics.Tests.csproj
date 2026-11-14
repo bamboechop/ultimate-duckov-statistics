@@ -17,6 +17,7 @@
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/KnownModCompatibility.cs" Link="ProductionAdapters/KnownModCompatibility.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeBuffApplicationAdapter.cs" Link="ProductionAdapters/NativeBuffApplicationAdapter.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeFirstPersonHeadshotCompatibility.cs" Link="ProductionAdapters/NativeFirstPersonHeadshotCompatibility.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/FirstPersonHeadshotResultObserver.cs" Link="ProductionAdapters/FirstPersonHeadshotResultObserver.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeBecomeVeteranHealingCompatibility.cs" Link="ProductionAdapters/NativeBecomeVeteranHealingCompatibility.cs" />
     <EmbeddedResource Include="Fixtures/Encounters/*.records.json.gz" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/EncounterEvidenceProjection.cs" Link="Encounters/EncounterEvidenceProjection.cs" />

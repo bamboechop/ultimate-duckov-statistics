@@ -38,40 +38,27 @@ internal static class KnownModCompatibility
         return name != null && IsVerifiedAssembly(assembly, name);
     }
 
-    // Kept separate from binary identity so an installed but unpatched FPC DLL
-    // cannot cause crit damage to be reinterpreted as headshot evidence.
-    internal static bool HasVerifiedFirstPersonHeadshotPatch(MethodInfo healthHurt)
+    internal static bool HasActiveFirstPersonHeadshotPrefix(MethodInfo healthHurt, Assembly assembly, out MethodInfo? prefix)
     {
-        try
-        {
-            var harmonies = AppDomain.CurrentDomain.GetAssemblies()
-                .Select(value => value.GetType("HarmonyLib.Harmony", false))
-                .Where(value => value != null).ToArray();
-            if (harmonies.Length != 1) return false;
-            var get = harmonies[0]!.GetMethod("GetPatchInfo", BindingFlags.Public | BindingFlags.Static,
-                null, new[] { typeof(MethodBase) }, null);
-            var info = get?.Invoke(null, new object[] { healthHurt });
-            if (info == null) return false;
-            return HasExactCallback(info, healthHurt, "Prefixes", "FirstPersonCamera.HeadshotPatch", "Prefix")
-                && HasExactCallback(info, healthHurt, "Postfixes", "FirstPersonCamera.HeadshotPatch", "Postfix")
-                && HasExactCallback(info, healthHurt, "Finalizers", "FirstPersonCamera.HeadshotPatch", "Finalizer")
-                && HasExactCallback(info, healthHurt, "Postfixes", "FirstPersonCamera.HitEffectsPatch", "Postfix");
-        }
-        catch { return false; }
-    }
-
-    private static bool HasExactCallback(object info, MethodBase original, string collection, string type, string method)
-    {
-        if (ReflectionContractReader.ReadInstanceMember(info, collection) is not IEnumerable patches) return false;
-        var count = 0;
+        prefix = null;
+        var harmony = AppDomain.CurrentDomain.GetAssemblies().Select(value => value.GetType("HarmonyLib.Harmony", false))
+            .SingleOrDefault(value => value != null);
+        var info = harmony?.GetMethod("GetPatchInfo", new[] { typeof(MethodBase) })?.Invoke(null, new object[] { healthHurt });
+        if (info == null || ReflectionContractReader.ReadInstanceMember(info, "Prefixes") is not IEnumerable patches) return false;
         foreach (var patch in patches)
         {
             if (patch == null || ReflectionContractReader.ReadInstanceMember(patch, "PatchMethod") is not MethodInfo callback
-                || callback.DeclaringType?.FullName != type || callback.Name != method) continue;
-            if (!AllowsPatch(original, collection, patch)) return false;
-            count++;
+                || callback.Module.Assembly != assembly || callback.DeclaringType?.FullName != "FirstPersonCamera.HeadshotPatch"
+                || callback.Name != "Prefix") continue;
+            if (prefix != null) return false;
+            var args = callback.GetParameters();
+            if (!callback.IsStatic || callback.ReturnType != typeof(void) || args.Length != 3
+                || args[0].ParameterType != healthHurt.DeclaringType
+                || args[1].ParameterType != healthHurt.GetParameters()[0].ParameterType.MakeByRefType()
+                || !args[2].IsOut) return false;
+            prefix = callback;
         }
-        return count == 1;
+        return prefix != null;
     }
 
     internal static bool MatchesCallback(MethodBase original, string collection, string owner, MethodInfo callback)

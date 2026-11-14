@@ -1,3 +1,8 @@
+# Unreleased
+
+- First Person Camera headshots now observe its explicit target-specific head-hit result instead of requiring an exact DLL fingerprint. Unrelated mod updates no longer disable tracking. Explosions and generic critical hits remain excluded from headshots.
+- A startup popup lists disabled recording capabilities before a run, with an acknowledgement button and a pointer to UDS Diagnostics. Initialization failure also raises a warning; historical gaps alone do not.
+
 # Ultimate Duckov Statistics 1.6.0
 
 Version 1.6.0 focuses on recording modded personal playthroughs and clearer combat evidence.

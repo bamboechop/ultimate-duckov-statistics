@@ -1,5 +1,13 @@
 # Validation and delivery evidence
 
+## FPC headshot result observer and startup warning (unreleased)
+
+The real Harmony observation probe source-links the production FPC resolver, result observer and capture policy. It exercises a new dynamic `FirstPersonCamera` module that has no approved binary identity, reads the prefix's actual out-state through injection, rejects generic critical body hits and explosion headshots, consumes evidence once, clears completed scopes and disables headshot evidence when the active FPC prefix disappears. The first generic-argument-array implementation failed this probe because its out-state was stale; direct boxed output parameters pass.
+
+Debug and Release each passed 2,614 statistics tests excluding the 14 deployment/package cases, and 220 retained-UI tests. The Release UI suite with both diagnostic switches passed 222 tests. A separate full Release statistics run passed 2,626 cases and failed only the two deployment cases whose guard requires Duckov to be closed. After Duckov was closed, all 14 deployment/package tests passed in each of Debug and Release. The prepared 13-file package was deployed on 2026-11-14; every installed file matched its qualified hash, all 152 UDS statistics files remained byte-identical, and the previous mod installation was retained as a reversible backup. Native contract and ordinary Release package verification passed; the native build produced no warnings or errors.
+
+The warning tests exercise the production view's capability list, native font binding, scroll container, click blocker, selected acknowledgement button, focus restoration and disposal. Policy tests cover startup settling, deduplication, disabled-only selection and once-per-activation delivery. Actual Unity rendering and gameplay headshot acceptance remain to be checked after deployment. No saved statistics are reconstructed or modified by this fix.
+
 ## 1.6.0 preparation
 
 Version 1.6.0 prepares record-by-default observation, modded personal records, FPC/barrel corrections and measured crafting costs. The behavior candidate passed 2,625 main and 219 ordinary shell tests in each of Debug and Release, the real Harmony injection probe, installed Duckov contract checks, native Release compilation and 13-file artifact/package audits. Versioned preparation follows the release qualification and frozen-source reproducibility workflow in [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md); its exact source and artifact qualification receipt is retained under `artifacts/releases/v1.6.0/`.
