@@ -155,7 +155,7 @@ public sealed partial class NativeCombatDegradationTests
     [InlineData(false)]
     public void ExplosiveBarrelShadowsProjectileAndPreservesPlayerCredit(bool firstPerson)
     {
-        using var compatible=StartFirstPersonAdapter(new NativeFirstPersonHeadshotCompatibility(()=>firstPerson));
+        using var compatible=StartFirstPersonAdapter(FpcCompatibility(()=>firstPerson));
         var projectile=LaunchEncounterProjectile();
         Time.frameCount++;
         object?[] outer=[projectile,null];

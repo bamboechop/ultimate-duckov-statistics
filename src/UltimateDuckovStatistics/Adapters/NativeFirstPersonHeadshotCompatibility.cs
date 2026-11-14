@@ -2,20 +2,25 @@ using System.Reflection;
 
 namespace UltimateDuckovStatistics.Adapters;
 
-// The inspected FPC build replaces launch-time head aim with a target-specific
-// result in its Health.Hurt prefix. This adapter reads that result only after
-// the verified prefix, and only while the same mode/eligibility contract applies.
-internal sealed class NativeFirstPersonHeadshotCompatibility
+// Read FPC's explicit target-specific result from its active prefix. Neither an
+// assembly fingerprint nor generic critical damage is headshot evidence.
+internal sealed class NativeFirstPersonHeadshotCompatibility : IDisposable
 {
     private readonly Func<bool>? firstPersonMode;
+    private FirstPersonHeadshotResultObserver? observer;
+    private readonly Func<Health, DamageInfo, bool>? resultReader;
 
-    internal NativeFirstPersonHeadshotCompatibility(Func<bool>? firstPersonMode = null, string? failure = null)
+    internal NativeFirstPersonHeadshotCompatibility(Func<bool>? firstPersonMode = null, string? failure = null,
+        FirstPersonHeadshotResultObserver? resultObserver = null, Func<Health, DamageInfo, bool>? resultReader = null)
     {
         this.firstPersonMode = firstPersonMode;
         Failure = failure;
+        observer = resultObserver;
+        this.resultReader = resultReader;
     }
 
     public bool IsSupported => Failure == null;
+    internal bool ObservesFirstPersonResults => observer != null;
     public string? Failure { get; private set; }
 
     public static NativeFirstPersonHeadshotCompatibility Resolve(MethodInfo? healthHurt)
@@ -27,10 +32,10 @@ internal sealed class NativeFirstPersonHeadshotCompatibility
 
         try
         {
-            var assembly = KnownModCompatibility.FindVerifiedAssembly(assemblyName);
+            var assembly = AppDomain.CurrentDomain.GetAssemblies().Single(value => value.GetName().Name == assemblyName);
             if (assembly == null || healthHurt == null
-                || !KnownModCompatibility.HasVerifiedFirstPersonHeadshotPatch(healthHurt))
-                return new(failure: "The installed First Person Camera headshot patch is not the verified active contract.");
+                || !KnownModCompatibility.HasActiveFirstPersonHeadshotPrefix(healthHurt, assembly, out var prefix))
+                return new(failure: "The First Person Camera headshot prefix is not active or has changed signature.");
 
             var modeMethod = assembly.GetType("FirstPersonCamera.HeadshotPatch", throwOnError: true)!
                 .GetMethod("IsFirstPersonModeActive", BindingFlags.Static | BindingFlags.NonPublic,
@@ -38,9 +43,10 @@ internal sealed class NativeFirstPersonHeadshotCompatibility
             if (modeMethod == null || modeMethod.ReturnType != typeof(bool))
                 return new(failure: "First Person Camera's verified headshot mode observer is unavailable.");
 
-            // Cache once. Damage callbacks invoke a strongly typed delegate, not
-            // reflection, patch enumeration, hashing, or duplicate head physics.
-            return new((Func<bool>)modeMethod.CreateDelegate(typeof(Func<bool>)));
+            // Cache mode and state field metadata once; do not repeat head physics
+            // or hash assemblies during damage callbacks.
+            return new((Func<bool>)modeMethod.CreateDelegate(typeof(Func<bool>)))
+            { observer = new FirstPersonHeadshotResultObserver(prefix!) };
         }
         catch (Exception exception)
         {
@@ -61,9 +67,16 @@ internal sealed class NativeFirstPersonHeadshotCompatibility
                 || !attacker.IsMainCharacter || target == null || target == attacker)
                 return false;
 
-            // For this exact active prefix and eligibility, crit is assigned
-            // directly from actualHeadHit (0/1). It is not generic crit evidence.
-            return damageInfo.crit == 1;
+            if (observer != null)
+            {
+                if (observer.TryConsume(health, damageInfo, attacker, target, out var result)) return result;
+                Failure = "First Person Camera did not supply a current target-specific headshot result.";
+                return false;
+            }
+
+            if (resultReader != null) return resultReader(health, damageInfo);
+            Failure = "First Person Camera headshot result observer is unavailable.";
+            return false;
         }
         catch (Exception exception)
         {
@@ -71,4 +84,6 @@ internal sealed class NativeFirstPersonHeadshotCompatibility
             return false;
         }
     }
+
+    public void Dispose() => observer?.Dispose();
 }

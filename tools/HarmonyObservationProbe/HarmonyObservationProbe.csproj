@@ -10,6 +10,8 @@
     <Reference Include="0Harmony" Condition="'$(HarmonyAssemblyPath)' != ''"><HintPath>$(HarmonyAssemblyPath)</HintPath><Private>true</Private></Reference>
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/ReflectiveHarmonyPatcher.cs" Link="Production/ReflectiveHarmonyPatcher.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/KnownModCompatibility.cs" Link="Production/KnownModCompatibility.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/FirstPersonHeadshotResultObserver.cs" Link="Production/FirstPersonHeadshotResultObserver.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeFirstPersonHeadshotCompatibility.cs" Link="Production/NativeFirstPersonHeadshotCompatibility.cs" />
   </ItemGroup>
   <Target Name="RequireHarmony" BeforeTargets="ResolveReferences" Condition="'$(HarmonyAssemblyPath)' != '' And !Exists('$(HarmonyAssemblyPath)')">
     <Error Text="Pass -p:HarmonyAssemblyPath pointing to the installed 0Harmony.dll." />

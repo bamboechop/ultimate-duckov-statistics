@@ -8,6 +8,18 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed partial class NativeCombatDegradationTests
 {
+    // Existing unit fixtures encode their explicit head-hit result in crit;
+    // production reads FPC's actualHeadHit state through real Harmony (probe).
+    private static NativeFirstPersonHeadshotCompatibility FpcCompatibility(Func<bool> mode)
+        => new(mode, resultReader: (_, info) => info.crit == 1);
+
+    [Fact]
+    public void MissingExplicitFpcObserverNeverFallsBackToGenericCrit()
+    {
+        var compatibility = new NativeFirstPersonHeadshotCompatibility(() => true);
+        Assert.False(compatibility.Capture(NewFirstPersonTarget(), new() { fromCharacter = player, crit = 1 }, true));
+        Assert.False(compatibility.IsSupported);
+    }
     [Theory]
     [InlineData(true, false, 1, 1)]
     [InlineData(true, true, 0, 0)]
@@ -16,7 +28,7 @@ public sealed partial class NativeCombatDegradationTests
     public void VerifiedFirstPersonModeSelectsTargetHitEvidenceWhileOffKeepsNativeLaunchEvidence(
         bool firstPerson, bool launchHeadAim, int verifiedPrefixCrit, int expectedHeadshots)
     {
-        using var compatible = StartFirstPersonAdapter(new(() => firstPerson));
+        using var compatible = StartFirstPersonAdapter(FpcCompatibility(() => firstPerson));
         var sink = new CombatSink();
         using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
         LevelManager.Instance!.InputManager.AimingEnemyHead = launchHeadAim;
@@ -40,7 +52,7 @@ public sealed partial class NativeCombatDegradationTests
     public void FirstPersonModeIsReadForEachDamageTargetRatherThanFrozenAtProjectileLaunch()
     {
         var firstPerson = false;
-        using var compatible = StartFirstPersonAdapter(new(() => firstPerson));
+        using var compatible = StartFirstPersonAdapter(FpcCompatibility(() => firstPerson));
         LevelManager.Instance!.InputManager.AimingEnemyHead = true;
         var first = LaunchEncounterProjectile();
         firstPerson = true;
@@ -59,7 +71,7 @@ public sealed partial class NativeCombatDegradationTests
     [Fact]
     public void FirstPersonHeadshotEvidenceDoesNotLeakToLaterFatalBodyTargetAndPelletsRemainIndependent()
     {
-        using var compatible = StartFirstPersonAdapter(new(() => true));
+        using var compatible = StartFirstPersonAdapter(FpcCompatibility(() => true));
         var sink = new CombatSink();
         using var observer = new NativeEncounterCombatObserver(sink, diagnostics.Add);
         var projectile = LaunchEncounterProjectile();
@@ -84,7 +96,7 @@ public sealed partial class NativeCombatDegradationTests
     [Fact]
     public void FirstPersonHeadshotResultRequiresNormalDamageFromMainDuckToAnotherCharacter()
     {
-        var compatibility = new NativeFirstPersonHeadshotCompatibility(() => true);
+        var compatibility = FpcCompatibility(() => true);
         var info = new DamageInfo { fromCharacter = player, crit = 1 };
         Assert.True(compatibility.Capture(NewFirstPersonTarget(), info, false));
         info.damageType = DamageTypes.realDamage;

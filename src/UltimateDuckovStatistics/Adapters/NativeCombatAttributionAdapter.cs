@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCleanup
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.combat";
-    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v11+throwables-v1+barrels-v1+patch-stamp-v1";
+    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v11+throwables-v1+barrels-v1+patch-stamp-v1+fpc-results-v1";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int MaximumProjectileCorrelations = 2048;
@@ -187,6 +187,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             firstPersonHeadshots = firstPersonCompatibilityFactory(methods.HealthHurt);
             support.HeadshotEvidence = firstPersonHeadshots.IsSupported;
             if (!support.HeadshotEvidence) diagnosticHandler(firstPersonHeadshots.Failure!);
+            else if (firstPersonHeadshots.ObservesFirstPersonResults)
+                diagnosticHandler("First Person Camera headshots observe its explicit per-target result; no whole-DLL fingerprint is required. Explosions remain excluded.");
             hookSupport = support;
             metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
             initialized = true;
@@ -1157,6 +1159,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     private void DetachRuntimeHooks()
     {
+        firstPersonHeadshots.Dispose();
         if (subscribedMainCharacter?.attackAction != null) subscribedMainCharacter.attackAction.OnAttack -= OnMeleeAttack;
         subscribedMainCharacter = null;
         grenadeHazards.Clear();

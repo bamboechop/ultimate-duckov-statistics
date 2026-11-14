@@ -8,6 +8,9 @@ namespace UnityEngine
         public HideFlags hideFlags;
         public bool Destroyed;
         public static int SceneSearches;
+        public static void DontDestroyOnLoad(Object value) { }
+        public static T[] FindObjectsOfType<T>(bool includeInactive) where T : Component
+            => FindObjectsByType<T>(includeInactive ? FindObjectsInactive.Include : FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         public static T[] FindObjectsByType<T>(FindObjectsInactive inactive, FindObjectsSortMode sorting) where T : Component
         { SceneSearches++; return GameObject.Live.SelectMany(go => go.GetComponents<T>()).ToArray(); }
         public int GetInstanceID() => GetHashCode();
@@ -173,7 +176,7 @@ namespace UnityEngine.EventSystems
     public interface IPointerExitHandler { void OnPointerExit(PointerEventData data); }
     public sealed class PointerEventData { public bool used; public UnityEngine.Vector2 scrollDelta; public void Use() => used = true; public UnityEngine.Vector2 position; public UnityEngine.Camera? enterEventCamera; }
     public enum MoveDirection { Left, Right, Up, Down, None }
-    public class EventSystem { public UnityEngine.GameObject? currentSelectedGameObject; public void SetSelectedGameObject(UnityEngine.GameObject? value) { currentSelectedGameObject = value; value?.GetComponent<UltimateDuckovStatistics.UI.RunsFocusHandler>()?.Selected?.Invoke(); } }
+    public class EventSystem { public static EventSystem? current; public UnityEngine.GameObject? currentSelectedGameObject; public void SetSelectedGameObject(UnityEngine.GameObject? value) { currentSelectedGameObject = value; value?.GetComponent<UltimateDuckovStatistics.UI.RunsFocusHandler>()?.Selected?.Invoke(); } }
 }
 namespace UnityEngine.UI
 {
@@ -188,7 +191,7 @@ namespace UnityEngine.UI
     public class Button : Selectable { public sealed class ButtonClickedEvent : UnityEngine.Events.UnityEvent { } public ButtonClickedEvent onClick = new(); }
     public class ScrollRect : Behaviour { public bool inertia; public virtual void OnScroll(UnityEngine.EventSystems.PointerEventData data) { } public sealed class ScrollEvent { private readonly List<Action<Vector2>> listeners = new(); public void AddListener(Action<Vector2> listener) => listeners.Add(listener); public void RemoveAllListeners() => listeners.Clear(); public void Invoke(Vector2 value) { foreach (var listener in listeners.ToArray()) listener(value); } } public ScrollEvent onValueChanged = new(); public RectTransform content = null!, viewport = null!; public bool horizontal, vertical; public float scrollSensitivity; public MovementType movementType; public enum MovementType { Clamped, Elastic, Unrestricted } public void StopMovement() { } }
     public class GraphicRaycaster : Behaviour { }
-    public class CanvasScaler : Behaviour { }
+    public class CanvasScaler : Behaviour { public enum ScaleMode { ScaleWithScreenSize } public ScaleMode uiScaleMode; public Vector2 referenceResolution; }
     public class LayoutGroup : MonoBehaviour { }
     public class LayoutElement : MonoBehaviour { public bool ignoreLayout; public float minHeight = -1, preferredHeight = -1, flexibleWidth = -1, flexibleHeight = -1, minWidth = -1, preferredWidth = -1; }
     public class ContentSizeFitter : MonoBehaviour { }

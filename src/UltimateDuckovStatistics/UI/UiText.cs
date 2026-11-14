@@ -19,6 +19,10 @@ internal static class UiText
     private static readonly Dictionary<string, string> English =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["ui.startup_disabled_title"] = "UDS: Some statistics cannot be recorded",
+            ["ui.startup_disabled_body"] = "The capabilities below are disabled. Check UDS → Diagnostics before starting a run. Your existing statistics are preserved.",
+            ["ui.startup_disabled_acknowledge"] = "Understood",
+            ["ui.startup_initialization_failed"] = "UDS initialization failed; recording is unavailable",
             ["ui.killfeed_title"] = "Kill feed",
             ["ui.killfeed_enabled"] = "Show kill feed",
             ["ui.killfeed_duration"] = "Display duration",

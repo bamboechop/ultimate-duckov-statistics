@@ -9,6 +9,7 @@
     <DefineConstants Condition="'$(UDSEncounterDiagnostics)' == 'true'">$(DefineConstants);UDS_ENCOUNTER_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/NativeStartupCapabilityWarning.cs" Link="ProductionUI/NativeStartupCapabilityWarning.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/NativeExtractionSummary.cs" Link="ProductionUI/NativeExtractionSummary.cs" />
 
     <Compile Include="../../src/UltimateDuckovStatistics/UI/PanelHotkey.cs" Link="ProductionUI/PanelHotkey.cs" />

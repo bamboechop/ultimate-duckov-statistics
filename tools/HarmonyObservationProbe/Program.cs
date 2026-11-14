@@ -53,6 +53,8 @@ using (observer!)
     Check(observer.IsPatchSetStampCurrent(stamp, out detail), "Restoring the required callback must allow stamp recovery: " + detail);
 }
 foreign.UnpatchAll("probe.unfamiliar.mod");
+FirstPersonHeadshotProbe.Run();
+FirstPersonHeadshotProbe.RunUpdatedBuild();
 Console.WriteLine("PASS: real Harmony injection; unfamiliar prefix/postfix/transpiler/finalizer; actual deltas; runtime revalidation; skipped original; exception cleanup; callback removal/restoration; stable fast path.");
 
 static void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }

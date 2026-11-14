@@ -281,6 +281,7 @@ internal static class CombatHarmonyCallbacks
 
     private static Exception? HealthFinalizer(Health __instance, Exception? __exception)
     {
+        FirstPersonHeadshotResultObserver.CompleteHealth(__instance);
         NativeEncounterCombatObserver.ObserveHealthFinally(__instance, __exception);
         return __exception;
     }
